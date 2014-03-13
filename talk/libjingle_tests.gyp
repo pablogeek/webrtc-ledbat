@@ -277,6 +277,7 @@
         'media/base/codec_unittest.cc',
         'media/base/filemediaengine_unittest.cc',
         'media/base/rtpdataengine_unittest.cc',
+        'media/base/loopbackdataengine_unittest.cc',
         'media/base/rtpdump_unittest.cc',
         'media/base/rtputils_unittest.cc',
         'media/base/testutils.cc',

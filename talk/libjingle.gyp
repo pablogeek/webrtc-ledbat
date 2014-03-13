@@ -821,6 +821,8 @@
         'media/base/mediaengine.h',
         'media/base/mutedvideocapturer.cc',
         'media/base/mutedvideocapturer.h',
+        'media/base/loopbackdataengine.h',
+        'media/base/loopbackdataengine.cc',
         'media/base/rtpdataengine.cc',
         'media/base/rtpdataengine.h',
         'media/base/rtpdump.cc',
