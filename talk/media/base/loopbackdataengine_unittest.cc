@@ -36,7 +36,7 @@ class FakeDataReceiver : public sigslot::has_slots<> {
 };
 
 
-class LoopbackDataMediaChannelTest : public testing::Test {
+class LoopbackDataEngineTest : public testing::Test {
   protected:
 	virtual void SetUp() {
 	    engine_.reset(new cricket::LoopbackDataEngine());
@@ -90,14 +90,14 @@ class LoopbackDataMediaChannelTest : public testing::Test {
 	talk_base::scoped_ptr<cricket::LoopbackDataMediaChannel> chan2_;
 };
 
-TEST_F(LoopbackDataMediaChannelTest, CreateMediaChannel) {
+TEST_F(LoopbackDataEngineTest, CreateMediaChannel) {
 	cricket::FakeNetworkInterface iface;
 	FakeDataReceiver recv;
 	talk_base::scoped_ptr<cricket::LoopbackDataMediaChannel> channel(CreateChannel(&iface, &recv));
 	EXPECT_TRUE(channel);
 }
 
-TEST_F(LoopbackDataMediaChannelTest, SendData) {
+TEST_F(LoopbackDataEngineTest, SendData) {
 
 	SetupConnectedChannels();
 	cricket::SendDataResult result;
