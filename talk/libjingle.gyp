@@ -783,6 +783,7 @@
       'dependencies': [
         '<(DEPTH)/third_party/libyuv/libyuv.gyp:libyuv',
         '<(DEPTH)/third_party/usrsctp/usrsctp.gyp:usrsctplib',
+        '<(DEPTH)/third_party/libutp/libutp.gyp:libutp',
         '<(webrtc_root)/modules/modules.gyp:video_capture_module',
         '<(webrtc_root)/modules/modules.gyp:video_render_module',
         '<(webrtc_root)/video_engine/video_engine.gyp:video_engine_core',
@@ -857,6 +858,8 @@
         'media/other/linphonemediaengine.h',
         'media/sctp/sctpdataengine.cc',
         'media/sctp/sctpdataengine.h',
+        'media/ledbat/ledbatdataengine.h',
+        'media/ledbat/ledbatdataengine.cc',
         'media/webrtc/webrtccommon.h',
         'media/webrtc/webrtcexport.h',
         'media/webrtc/webrtcmediaengine.h',
