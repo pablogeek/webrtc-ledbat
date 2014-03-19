@@ -90,6 +90,10 @@ typedef unsigned int uint;
 typedef unsigned int uint32;
 typedef signed int int32;
 
+// Solve libjingle conflict
+#ifndef INT_TYPES_DEFINED
+#define INT_TYPES_DEFINED
+
 #ifdef _MSC_VER
 typedef unsigned __int64 uint64;
 typedef signed __int64 int64;
@@ -98,6 +102,7 @@ typedef unsigned long long uint64;
 typedef long long int64;
 #endif
 
+#endif
 /* compile-time assert */
 #ifndef CASSERT
 #define CASSERT( exp, name ) typedef int is_not_##name [ (exp ) ? 1 : -1 ];
