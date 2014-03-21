@@ -2,7 +2,6 @@
 #include "talk/base/gunit.h"
 #include "talk/media/base/fakenetworkinterface.h"
 #include "talk/media/ledbat/ledbatdataengine.h"
-#include "libutp/utp.h"
 
 class FakeDataReceiver : public sigslot::has_slots<> {
  public:
@@ -107,30 +106,4 @@ TEST_F(LedbatDataEngineTest, SendData) {
 	EXPECT_EQ(cricket::SDR_SUCCESS, result);
 	EXPECT_TRUE_WAIT(recv2()->has_received_data(), 1000);
 	EXPECT_EQ("chan1 says hi", recv2()->last_received_data());
-}
-
-TEST_F(LedbatDataEngineTest, CreateUTPContext) {
-	utp_context *ctx;
-	ctx = utp_init(2);
-	EXPECT_TRUE(ctx);
-}
-
-TEST_F(LedbatDataEngineTest, CreateUTPSocket) {
-	utp_context *ctx;
-	ctx = utp_init(2);
-	EXPECT_TRUE(ctx);
-
-	utp_socket *s;
-	s = utp_create_socket(ctx);
-	EXPECT_TRUE(s);
-}
-
-TEST_F(LedbatDataEngineTest, SendUTPData) {
-	utp_context *ctx;
-	ctx = utp_init(2);
-	EXPECT_TRUE(ctx);
-
-	utp_socket *s;
-	s = utp_create_socket(ctx);
-	EXPECT_TRUE(s);
 }
