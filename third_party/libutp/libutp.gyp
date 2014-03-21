@@ -8,6 +8,7 @@
   'target_defaults': {
     'defines': [
       'POSIX',
+      'UTP_DEBUG_LOGGING'
     ],
     'include_dirs': [
     ],
