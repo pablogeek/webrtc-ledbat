@@ -1,5 +1,6 @@
 #include "talk/media/base/mediaengine.h"
 #include "talk/media/base/mediachannel.h"
+#include "libutp/utp.h"
 
 namespace cricket {
 
@@ -36,15 +37,14 @@ class LedbatDataMediaChannel : public DataMediaChannel {
 	virtual bool AddRecvStream(const StreamParams& sp);
 	virtual bool RemoveRecvStream(uint32 ssrc);
 
+	virtual bool SetSend(bool send);
 
-	virtual bool SetSend(bool send) {
-		sending_ = send;
-		return true;
-	}
 	virtual bool SetReceive(bool receive) {
 		receiving_ = receive;
 		return true;
 	}
+
+	int utp_state();
 
 	virtual void OnPacketReceived(talk_base::Buffer* packet,
 	                            const talk_base::PacketTime& packet_time);
@@ -56,7 +56,22 @@ class LedbatDataMediaChannel : public DataMediaChannel {
 	virtual bool SendData(const SendDataParams& params, 
 						  const talk_base::Buffer& payload, 
 						  SendDataResult* result);
+
+	void SetDebugName(std::string name);
+
+	uint64 OnUTPSendTo(utp_callback_arguments *a);
+
+	uint64 OnUTPLog(utp_callback_arguments *a);
+
+	uint64 OnUTPStateChange(utp_callback_arguments *a);
+
+	uint64 OnUTPAccept(utp_callback_arguments *a);
+
+	uint64 OnUTPRead(utp_callback_arguments *a);
+	
   private:
+  	void Log(const char *fmt, ...);
+
 	bool sending_;
 	bool receiving_;
 	int max_bps_;
@@ -64,6 +79,13 @@ class LedbatDataMediaChannel : public DataMediaChannel {
     std::vector<DataCodec> send_codecs_;
     std::vector<StreamParams> send_streams_;
     std::vector<StreamParams> recv_streams_;
+
+    utp_context *ctx_;
+    utp_socket *utp_sock_;
+    std::string debug_name_;
+    bool debug_log_; 
+    struct sockaddr_in ip4addr_; 
+    int utp_state_;  
 };
 
 } // namespace cricket

@@ -98,7 +98,6 @@ TEST_F(LoopbackDataEngineTest, CreateMediaChannel) {
 }
 
 TEST_F(LoopbackDataEngineTest, SendData) {
-
 	SetupConnectedChannels();
 	cricket::SendDataResult result;
 	cricket::SendDataParams params;
