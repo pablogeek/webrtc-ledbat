@@ -70,15 +70,16 @@ void LedbatDataMediaChannel::OnPacketReceived(talk_base::Buffer* packet,
   // pointer dereference
   talk_base::Buffer packet_copy = *packet; 
 
-	if (!utp_process_udp(ctx_, (unsigned char*)packet_copy.data(), packet->length(), 
-      (struct sockaddr *)&ip4addr_, (socklen_t)sizeof(ip4addr_))) {
+	if (!utp_process_udp(ctx_, (unsigned char*)packet_copy.data(), 
+      packet->length(), (struct sockaddr *)&ip4addr_, 
+      (socklen_t)sizeof(ip4addr_))) {
     Log("UDP packet not handled by UTP.  Ignoring.");     
   }
 }
 
 bool LedbatDataMediaChannel::SetMaxSendBandwidth(int bps) { 	
-	  max_bps_ = bps;
-    return true;
+  max_bps_ = bps;
+  return true;
 }
 
 bool LedbatDataMediaChannel::SetRecvCodecs(
@@ -148,8 +149,14 @@ void LedbatDataMediaChannel::SetDebugName(std::string name) {
 }
 
 bool LedbatDataMediaChannel::SendData(const SendDataParams& params,
-              const talk_base::Buffer& payload,
-              SendDataResult* result) {
+                                      const talk_base::Buffer& payload,
+                                      SendDataResult* result) {
+  if (result) {
+    // Preset |result| to assume an error.  If SendData succeeds, we'll
+    // overwrite |*result| once more at the end.
+    *result = SDR_ERROR;
+  }
+
   char *send_buffer_ = strdup(payload.data());
   char *send_buffer_index_ = send_buffer_;
   size_t buf_len_ = payload.length();
@@ -157,7 +164,8 @@ bool LedbatDataMediaChannel::SendData(const SendDataParams& params,
 	while (send_buffer_index_ < send_buffer_ + buf_len_) {
     size_t sent;
 
-    sent = utp_write(utp_sock_, send_buffer_index_, send_buffer_ + buf_len_ - send_buffer_index_);
+    sent = utp_write(utp_sock_, send_buffer_index_, 
+      send_buffer_ + buf_len_ - send_buffer_index_);
     if (sent == 0) {
       Log("Socket no longer writable");
       return false;
@@ -166,10 +174,11 @@ bool LedbatDataMediaChannel::SendData(const SendDataParams& params,
     send_buffer_index_ += sent;
 
     if (send_buffer_index_ == send_buffer_ + buf_len_) {
-        Log("wrote %zd bytes; buffer now empty", sent);
-        send_buffer_index_ = send_buffer_;
+      Log("wrote %zd bytes; buffer now empty", sent);
+      send_buffer_index_ = send_buffer_;
     } else {
-      Log("wrote %zd bytes; %d bytes left in buffer", sent, send_buffer_ + buf_len_ - send_buffer_index_);
+      Log("wrote %zd bytes; %d bytes left in buffer", sent, 
+        send_buffer_ + buf_len_ - send_buffer_index_);
     }
     *result = cricket::SDR_SUCCESS;
     return true;
@@ -229,7 +238,8 @@ uint64 LedbatDataMediaChannel::OnUTPRead(utp_callback_arguments *a) {
   return 0;
 }
 
-LedbatDataMediaChannel* ledbat_get_callback_media_channel(utp_callback_arguments *a) {
+LedbatDataMediaChannel* ledbat_get_callback_media_channel(
+    utp_callback_arguments *a) {
   void *user_data = utp_context_get_userdata(a->context);
   return (LedbatDataMediaChannel*)user_data; 
 }
