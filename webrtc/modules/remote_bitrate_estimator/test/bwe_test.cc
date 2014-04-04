@@ -46,7 +46,8 @@ class BweTest::TestedEstimator : public RemoteBitrateObserver {
         relative_estimator_stats_(),
         latest_estimate_bps_(-1),
         estimator_(config.estimator_factory->Create(
-            this, &clock_, kRemoteBitrateEstimatorMinBitrateBps)),
+            this, &clock_, config.control_type,
+            kRemoteBitrateEstimatorMinBitrateBps)),
         relative_estimator_(NULL),
         baseline_(BaseLineFileInterface::Create(test_name + "_" + debug_name_,
                                                 config.update_baseline)) {
@@ -246,7 +247,9 @@ void BweTest::RunFor(int64_t time_ms) {
     for (vector<PacketProcessor*>::const_iterator it =
          processors_.begin(); it != processors_.end(); ++it) {
       (*it)->RunFor(simulation_interval_ms_, &packets);
-      (*it)->Plot((packets.back().send_time_us() + 500) / 1000);
+      if (!packets.empty()) {
+        (*it)->Plot((packets.back().send_time_us() + 500) / 1000);
+      }
     }
 
     // Verify packets are in order between batches.

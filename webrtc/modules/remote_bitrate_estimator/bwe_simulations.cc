@@ -17,11 +17,12 @@ namespace testing {
 namespace bwe {
 #if BWE_TEST_LOGGING_COMPILE_TIME_ENABLE
 std::vector<BweTestConfig::EstimatorConfig> SingleEstimatorConfig() {
-  static const RemoteBitrateEstimatorFactory factory =
+  static const AbsoluteSendTimeRemoteBitrateEstimatorFactory factory =
       AbsoluteSendTimeRemoteBitrateEstimatorFactory();
 
   std::vector<BweTestConfig::EstimatorConfig> result;
-  result.push_back(BweTestConfig::EstimatorConfig("AST", &factory));
+  result.push_back(BweTestConfig::EstimatorConfig("AST", &factory, kAimdControl,
+                                                  false));
   return result;
 }
 
@@ -80,6 +81,42 @@ TEST_P(BweSimulation, Verizon4gDownlinkTest) {
   RateCounterFilter counter2(this, "receiver_input");
   ASSERT_TRUE(filter.Init(test::ResourcePath("verizon4g-downlink", "rx")));
   RunFor(22 * 60 * 1000);
+}
+
+TEST_P(BweSimulation, Choke1000kbps500kbps1000kbps) {
+  VerboseLogging(true);
+  ChokeFilter filter(this);
+  RateCounterFilter counter(this, "receiver_input");
+  filter.SetCapacity(1000);
+  filter.SetMaxDelay(500);
+  RunFor(60 * 1000);
+  filter.SetCapacity(500);
+  RunFor(60 * 1000);
+  filter.SetCapacity(1000);
+  RunFor(60 * 1000);
+}
+
+TEST_P(BweSimulation, Choke200kbps30kbps200kbps) {
+  VerboseLogging(true);
+  ChokeFilter filter(this);
+  RateCounterFilter counter(this, "receiver_input");
+  filter.SetCapacity(200);
+  filter.SetMaxDelay(500);
+  RunFor(60 * 1000);
+  filter.SetCapacity(30);
+  RunFor(60 * 1000);
+  filter.SetCapacity(200);
+  RunFor(60 * 1000);
+}
+
+TEST_P(BweSimulation, GoogleWifiTrace3Mbps) {
+  VerboseLogging(true);
+  RateCounterFilter counter1(this, "sender_output");
+  TraceBasedDeliveryFilter filter(this, "link_capacity");
+  filter.SetMaxDelay(500);
+  RateCounterFilter counter2(this, "receiver_input");
+  ASSERT_TRUE(filter.Init(test::ResourcePath("google-wifi-3mbps", "rx")));
+  RunFor(300 * 1000);
 }
 #endif  // BWE_TEST_LOGGING_COMPILE_TIME_ENABLE
 }  // namespace bwe

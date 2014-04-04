@@ -42,7 +42,7 @@
 #include "webrtc/voice_engine/include/voe_video_sync.h"
 #include "webrtc/voice_engine/include/voe_volume_control.h"
 
-DEFINE_bool(use_acm_version_2, false,
+DEFINE_bool(use_acm_version_1, false,
             "If true, we'll run the tests with Audio Coding Module version 2.");
 DEFINE_bool(use_log_file, false,
     "Output logs to a file; by default they will be printed to stderr.");
@@ -129,11 +129,11 @@ int main(int argc, char** argv) {
 
   printf("Test started \n");
 
-  // TODO(minyue): Remove when the old ACM is removed (latest 2014-04-01).
+  // TODO(minyue): Remove when the old ACM is removed.
   Config config;
-  config.Set<AudioCodingModuleFactory>(FLAGS_use_acm_version_2 ?
-      new NewAudioCodingModuleFactory() :
-      new AudioCodingModuleFactory());
+  config.Set<AudioCodingModuleFactory>(FLAGS_use_acm_version_1 ?
+      new AudioCodingModuleFactory() :
+      new NewAudioCodingModuleFactory());
   m_voe = VoiceEngine::Create(config);
 
   base1 = VoEBase::GetInterface(m_voe);
@@ -270,6 +270,9 @@ void RunTest(std::string out_path) {
     fflush(NULL);
   }
 
+  scoped_ptr<VoiceChannelTransport> voice_channel_transport(
+      new VoiceChannelTransport(netw, chan));
+
   char ip[64];
   printf("1. 127.0.0.1 \n");
   printf("2. Specify IP \n");
@@ -289,9 +292,6 @@ void RunTest(std::string out_path) {
   if (1 == rPort)
     rPort = 1234;
   printf("Set Send port \n");
-
-  scoped_ptr<VoiceChannelTransport> voice_channel_transport(
-      new VoiceChannelTransport(netw, chan));
 
   printf("Set Send IP \n");
   res = voice_channel_transport->SetSendDestination(ip, rPort);
@@ -341,8 +341,6 @@ void RunTest(std::string out_path) {
   // Call loop
   bool newcall = true;
   while (newcall) {
-
-#ifndef WEBRTC_ANDROID
     int rd(-1), pd(-1);
     res = hardware->GetNumOfRecordingDevices(rd);
     VALIDATE;
@@ -374,7 +372,6 @@ void RunTest(std::string out_path) {
     printf("Setting sound devices \n");
     res = hardware->SetRecordingDevice(rd);
     VALIDATE;
-#endif  // WEBRTC_ANDROID
 
     res = codec->SetVADStatus(0, enable_cng);
     VALIDATE;
@@ -415,7 +412,6 @@ void RunTest(std::string out_path) {
       VALIDATE;
     }
 
-#ifndef WEBRTC_ANDROID
     printf("Getting mic volume \n");
     unsigned int vol = 999;
     res = volume->GetMicVolume(vol);
@@ -423,7 +419,6 @@ void RunTest(std::string out_path) {
     if ((vol > 255) || (vol < 1)) {
       printf("\n****ERROR in GetMicVolume");
     }
-#endif
 
     int forever = 1;
     while (forever) {

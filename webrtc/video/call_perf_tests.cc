@@ -24,6 +24,7 @@
 #include "webrtc/system_wrappers/interface/critical_section_wrapper.h"
 #include "webrtc/system_wrappers/interface/scoped_ptr.h"
 #include "webrtc/test/direct_transport.h"
+#include "webrtc/test/encoder_settings.h"
 #include "webrtc/test/fake_audio_device.h"
 #include "webrtc/test/fake_decoder.h"
 #include "webrtc/test/fake_encoder.h"
@@ -50,16 +51,16 @@ class CallPerfTest : public ::testing::Test {
  public:
   CallPerfTest()
       : send_stream_(NULL), fake_encoder_(Clock::GetRealTimeClock()) {}
+
  protected:
   VideoSendStream::Config GetSendTestConfig(Call* call) {
     VideoSendStream::Config config = call->GetDefaultSendConfig();
-    config.encoder = &fake_encoder_;
-    config.internal_source = false;
     config.rtp.ssrcs.push_back(kSendSsrc);
-    test::FakeEncoder::SetCodecSettings(&config.codec, 1);
-    config.codec.plType = kSendPayloadType;
+    config.encoder_settings = test::CreateEncoderSettings(
+        &fake_encoder_, "FAKE", kSendPayloadType, 1);
     return config;
   }
+
   void RunVideoSendTest(Call* call,
                         const VideoSendStream::Config& config,
                         test::RtpRtcpObserver* observer) {
@@ -77,6 +78,8 @@ class CallPerfTest : public ::testing::Test {
     send_stream_->StopSending();
     call->DestroyVideoSendStream(send_stream_);
   }
+
+  void TestMinTransmitBitrate(bool pad_to_min_bitrate);
 
   VideoSendStream* send_stream_;
   test::FakeEncoder fake_encoder_;
@@ -282,7 +285,7 @@ TEST_P(ParamCallPerfTest, PlaysOutAudioAndVideoInSync) {
             channel_, packet, static_cast<unsigned int>(length));
       } else {
         ret = voe_network_->ReceivedRTPPacket(
-            channel_, packet, static_cast<unsigned int>(length));
+            channel_, packet, static_cast<unsigned int>(length), PacketTime());
       }
       return ret == 0;
     }
@@ -308,11 +311,14 @@ TEST_P(ParamCallPerfTest, PlaysOutAudioAndVideoInSync) {
 
   VideoReceiveStream::Config receive_config =
       receiver_call->GetDefaultReceiveConfig();
-  receive_config.codecs.clear();
-  receive_config.codecs.push_back(send_config.codec);
+  assert(receive_config.codecs.empty());
+  VideoCodec codec =
+      test::CreateDecoderVideoCodec(send_config.encoder_settings);
+  receive_config.codecs.push_back(codec);
+  assert(receive_config.external_decoders.empty());
   ExternalVideoDecoder decoder;
   decoder.decoder = &fake_decoder;
-  decoder.payload_type = send_config.codec.plType;
+  decoder.payload_type = send_config.encoder_settings.payload_type;
   receive_config.external_decoders.push_back(decoder);
   receive_config.rtp.remote_ssrc = send_config.rtp.ssrcs[0];
   receive_config.rtp.local_ssrc = kReceiverLocalSsrc;
@@ -324,11 +330,12 @@ TEST_P(ParamCallPerfTest, PlaysOutAudioAndVideoInSync) {
   VideoReceiveStream* receive_stream =
       receiver_call->CreateVideoReceiveStream(receive_config);
   scoped_ptr<test::FrameGeneratorCapturer> capturer(
-      test::FrameGeneratorCapturer::Create(send_stream->Input(),
-                                           send_config.codec.width,
-                                           send_config.codec.height,
-                                           30,
-                                           Clock::GetRealTimeClock()));
+      test::FrameGeneratorCapturer::Create(
+          send_stream->Input(),
+          send_config.encoder_settings.streams[0].width,
+          send_config.encoder_settings.streams[0].height,
+          30,
+          Clock::GetRealTimeClock()));
   receive_stream->StartReceiving();
   send_stream->StartSending();
   capturer->Start();
@@ -388,4 +395,136 @@ TEST_F(CallPerfTest, RegisterCpuOveruseObserver) {
   VideoSendStream::Config send_config = GetSendTestConfig(call.get());
   RunVideoSendTest(call.get(), send_config, &observer);
 }
+
+void CallPerfTest::TestMinTransmitBitrate(bool pad_to_min_bitrate) {
+  static const int kMaxEncodeBitrateKbps = 30;
+  static const int kMinTransmitBitrateBps = 150000;
+  static const int kMinAcceptableTransmitBitrate = 130;
+  static const int kMaxAcceptableTransmitBitrate = 170;
+  static const int kNumBitrateObservationsInRange = 100;
+  class BitrateObserver : public test::RtpRtcpObserver, public PacketReceiver {
+   public:
+    explicit BitrateObserver(bool using_min_transmit_bitrate)
+        : test::RtpRtcpObserver(kLongTimeoutMs),
+          send_stream_(NULL),
+          send_transport_receiver_(NULL),
+          using_min_transmit_bitrate_(using_min_transmit_bitrate),
+          num_bitrate_observations_in_range_(0) {}
+
+    virtual void SetReceivers(PacketReceiver* send_transport_receiver,
+                              PacketReceiver* receive_transport_receiver)
+        OVERRIDE {
+      send_transport_receiver_ = send_transport_receiver;
+      test::RtpRtcpObserver::SetReceivers(this, receive_transport_receiver);
+    }
+
+    void SetSendStream(VideoSendStream* send_stream) {
+      send_stream_ = send_stream;
+    }
+
+   private:
+    virtual bool DeliverPacket(const uint8_t* packet, size_t length) OVERRIDE {
+      VideoSendStream::Stats stats = send_stream_->GetStats();
+      if (stats.substreams.size() > 0) {
+        assert(stats.substreams.size() == 1);
+        int bitrate_kbps = stats.substreams.begin()->second.bitrate_bps / 1000;
+        if (bitrate_kbps > 0) {
+          test::PrintResult(
+              "bitrate_stats_",
+              (using_min_transmit_bitrate_ ? "min_transmit_bitrate"
+                                           : "without_min_transmit_bitrate"),
+              "bitrate_kbps",
+              static_cast<size_t>(bitrate_kbps),
+              "kbps",
+              false);
+          if (using_min_transmit_bitrate_) {
+            if (bitrate_kbps > kMinAcceptableTransmitBitrate &&
+                bitrate_kbps < kMaxAcceptableTransmitBitrate) {
+              ++num_bitrate_observations_in_range_;
+            }
+          } else {
+            // Expect bitrate stats to roughly match the max encode bitrate.
+            if (bitrate_kbps > kMaxEncodeBitrateKbps - 5 &&
+                bitrate_kbps < kMaxEncodeBitrateKbps + 5) {
+              ++num_bitrate_observations_in_range_;
+            }
+          }
+          if (num_bitrate_observations_in_range_ ==
+              kNumBitrateObservationsInRange)
+            observation_complete_->Set();
+        }
+      }
+      return send_transport_receiver_->DeliverPacket(packet, length);
+    }
+
+    VideoSendStream* send_stream_;
+    PacketReceiver* send_transport_receiver_;
+    const bool using_min_transmit_bitrate_;
+    int num_bitrate_observations_in_range_;
+  } observer(pad_to_min_bitrate);
+
+  scoped_ptr<Call> sender_call(
+      Call::Create(Call::Config(observer.SendTransport())));
+  scoped_ptr<Call> receiver_call(
+      Call::Create(Call::Config(observer.ReceiveTransport())));
+
+  VideoSendStream::Config send_config = GetSendTestConfig(sender_call.get());
+  fake_encoder_.SetMaxBitrate(kMaxEncodeBitrateKbps);
+
+  observer.SetReceivers(receiver_call->Receiver(), sender_call->Receiver());
+
+  send_config.pacing = true;
+  if (pad_to_min_bitrate) {
+    send_config.rtp.min_transmit_bitrate_bps = kMinTransmitBitrateBps;
+  } else {
+    assert(send_config.rtp.min_transmit_bitrate_bps == 0);
+  }
+
+  VideoReceiveStream::Config receive_config =
+      receiver_call->GetDefaultReceiveConfig();
+  receive_config.codecs.clear();
+  VideoCodec codec =
+      test::CreateDecoderVideoCodec(send_config.encoder_settings);
+  receive_config.codecs.push_back(codec);
+  test::FakeDecoder fake_decoder;
+  ExternalVideoDecoder decoder;
+  decoder.decoder = &fake_decoder;
+  decoder.payload_type = send_config.encoder_settings.payload_type;
+  receive_config.external_decoders.push_back(decoder);
+  receive_config.rtp.remote_ssrc = send_config.rtp.ssrcs[0];
+  receive_config.rtp.local_ssrc = kReceiverLocalSsrc;
+
+  VideoSendStream* send_stream =
+      sender_call->CreateVideoSendStream(send_config);
+  VideoReceiveStream* receive_stream =
+      receiver_call->CreateVideoReceiveStream(receive_config);
+  scoped_ptr<test::FrameGeneratorCapturer> capturer(
+      test::FrameGeneratorCapturer::Create(
+          send_stream->Input(),
+          send_config.encoder_settings.streams[0].width,
+          send_config.encoder_settings.streams[0].height,
+          30,
+          Clock::GetRealTimeClock()));
+  observer.SetSendStream(send_stream);
+  receive_stream->StartReceiving();
+  send_stream->StartSending();
+  capturer->Start();
+
+  EXPECT_EQ(kEventSignaled, observer.Wait())
+      << "Timeout while waiting for send-bitrate stats.";
+
+  send_stream->StopSending();
+  receive_stream->StopReceiving();
+  observer.StopSending();
+  capturer->Stop();
+  sender_call->DestroyVideoSendStream(send_stream);
+  receiver_call->DestroyVideoReceiveStream(receive_stream);
+}
+
+TEST_F(CallPerfTest, PadsToMinTransmitBitrate) { TestMinTransmitBitrate(true); }
+
+TEST_F(CallPerfTest, NoPadWithoutMinTransmitBitrate) {
+  TestMinTransmitBitrate(false);
+}
+
 }  // namespace webrtc

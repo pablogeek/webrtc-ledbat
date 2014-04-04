@@ -28,6 +28,7 @@ namespace webrtc {
 namespace testing {
 namespace bwe {
 
+class DelayCapHelper;
 class RateCounter;
 
 template<typename T> class Stats {
@@ -204,6 +205,7 @@ class RateCounterFilter : public PacketProcessor {
   uint32_t bits_per_second() const;
 
   void LogStats();
+  Stats<double> GetBitrateStats() const;
   virtual void Plot(int64_t timestamp_ms);
   virtual void RunFor(int64_t time_ms, Packets* in_out);
 
@@ -281,16 +283,18 @@ class ReorderFilter : public PacketProcessor {
 class ChokeFilter : public PacketProcessor {
  public:
   explicit ChokeFilter(PacketProcessorListener* listener);
-  virtual ~ChokeFilter() {}
+  virtual ~ChokeFilter();
 
   void SetCapacity(uint32_t kbps);
-  void SetMaxDelay(int64_t max_delay_ms);
+  void SetMaxDelay(int max_delay_ms);
   virtual void RunFor(int64_t time_ms, Packets* in_out);
+
+  Stats<double> GetDelayStats() const;
 
  private:
   uint32_t kbps_;
-  int64_t max_delay_us_;
   int64_t last_send_time_us_;
+  scoped_ptr<DelayCapHelper> delay_cap_helper_;
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(ChokeFilter);
 };
@@ -309,6 +313,9 @@ class TraceBasedDeliveryFilter : public PacketProcessor {
   virtual void Plot(int64_t timestamp_ms);
   virtual void RunFor(int64_t time_ms, Packets* in_out);
 
+  void SetMaxDelay(int max_delay_ms);
+  Stats<double> GetDelayStats() const;
+
  private:
   void ProceedToNextSlot();
 
@@ -319,6 +326,7 @@ class TraceBasedDeliveryFilter : public PacketProcessor {
   int64_t local_time_us_;
   scoped_ptr<RateCounter> rate_counter_;
   std::string name_;
+  scoped_ptr<DelayCapHelper> delay_cap_helper_;
 
   DISALLOW_COPY_AND_ASSIGN(TraceBasedDeliveryFilter);
 };
