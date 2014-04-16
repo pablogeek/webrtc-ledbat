@@ -35,6 +35,8 @@
 #include "talk/base/logging.h"
 #include "talk/examples/peerconnection/client/defaults.h"
 #include "talk/media/devices/devicemanager.h"
+#include "talk/app/webrtc/datachannel.h"
+#include "talk/app/webrtc/test/fakeconstraints.h"
 
 // Names used for a IceCandidate JSON object.
 const char kCandidateSdpMidName[] = "sdpMid";
@@ -102,8 +104,13 @@ bool Conductor::InitializePeerConnection() {
   webrtc::PeerConnectionInterface::IceServer server;
   server.uri = GetPeerConnectionString();
   servers.push_back(server);
+
+  webrtc::FakeConstraints constraints;
+  constraints.SetAllowRtpDataChannels();
+  //constraints.SetAllowDtlsSctpDataChannels();
+
   peer_connection_ = peer_connection_factory_->CreatePeerConnection(servers,
-                                                                    NULL,
+                                                                    &constraints,
                                                                     NULL,
                                                                     this);
   if (!peer_connection_.get()) {
@@ -111,7 +118,12 @@ bool Conductor::InitializePeerConnection() {
         "CreatePeerConnection failed", true);
     DeletePeerConnection();
   }
-  AddStreams();
+  //AddStreams();
+  
+
+  datachannel_ = peer_connection_.get()->CreateDataChannel("ANTON", NULL);
+  datachannel_->RegisterObserver(this);
+
   return peer_connection_.get() != NULL;
 }
 
@@ -123,6 +135,11 @@ void Conductor::DeletePeerConnection() {
   peer_connection_factory_ = NULL;
   peer_id_ = -1;
 }
+
+void Conductor::OnMessage(const webrtc::DataBuffer& buffer) {
+    LOG(INFO) << "\n\n### Message received ###:\n " << buffer.data.data() << "\n";
+    quit_ = true;
+};
 
 void Conductor::EnsureStreamingUI() {
   ASSERT(peer_connection_.get() != NULL);

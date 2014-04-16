@@ -28,6 +28,7 @@
 #include "webrtc/system_wrappers/interface/event_wrapper.h"
 #include "webrtc/system_wrappers/interface/scoped_ptr.h"
 #include "webrtc/test/direct_transport.h"
+#include "webrtc/test/encoder_settings.h"
 #include "webrtc/test/fake_decoder.h"
 #include "webrtc/test/fake_encoder.h"
 #include "webrtc/test/frame_generator_capturer.h"
@@ -44,12 +45,11 @@ class StreamObserver : public newapi::Transport, public RemoteBitrateObserver {
  public:
   typedef std::map<uint32_t, int> BytesSentMap;
   typedef std::map<uint32_t, uint32_t> SsrcMap;
-  StreamObserver(int num_expected_ssrcs,
-                 const SsrcMap& rtx_media_ssrcs,
+  StreamObserver(const SsrcMap& rtx_media_ssrcs,
                  newapi::Transport* feedback_transport,
                  Clock* clock)
       : critical_section_(CriticalSectionWrapper::CreateCriticalSection()),
-        all_ssrcs_sent_(EventWrapper::Create()),
+        test_done_(EventWrapper::Create()),
         rtp_parser_(RtpHeaderParser::Create()),
         feedback_transport_(feedback_transport),
         receive_stats_(ReceiveStatistics::Create(clock)),
@@ -57,7 +57,7 @@ class StreamObserver : public newapi::Transport, public RemoteBitrateObserver {
             new RTPPayloadRegistry(-1,
                                    RTPPayloadStrategy::CreateStrategy(false))),
         clock_(clock),
-        num_expected_ssrcs_(num_expected_ssrcs),
+        expected_bitrate_bps_(0),
         rtx_media_ssrcs_(rtx_media_ssrcs),
         total_sent_(0),
         padding_sent_(0),
@@ -81,49 +81,22 @@ class StreamObserver : public newapi::Transport, public RemoteBitrateObserver {
     AbsoluteSendTimeRemoteBitrateEstimatorFactory rbe_factory;
     const uint32_t kRemoteBitrateEstimatorMinBitrateBps = 30000;
     remote_bitrate_estimator_.reset(
-        rbe_factory.Create(this, clock, kRemoteBitrateEstimatorMinBitrateBps));
+        rbe_factory.Create(this, clock, kMimdControl,
+                           kRemoteBitrateEstimatorMinBitrateBps));
+  }
+
+  void set_expected_bitrate_bps(unsigned int expected_bitrate_bps) {
+    expected_bitrate_bps_ = expected_bitrate_bps;
   }
 
   virtual void OnReceiveBitrateChanged(const std::vector<unsigned int>& ssrcs,
-                                       unsigned int bitrate) {
+                                       unsigned int bitrate) OVERRIDE {
     CriticalSectionScoped lock(critical_section_.get());
-    if (ssrcs.size() == num_expected_ssrcs_ && bitrate >= kExpectedBitrateBps) {
+    assert(expected_bitrate_bps_ > 0);
+    if (bitrate >= expected_bitrate_bps_) {
+      // Just trigger if there was any rtx padding packet.
       if (rtx_media_ssrcs_.empty() || rtx_media_sent_ > 0) {
-        const ::testing::TestInfo* const test_info =
-            ::testing::UnitTest::GetInstance()->current_test_info();
-        webrtc::test::PrintResult(
-            "total-sent", "", test_info->name(), total_sent_, "bytes", false);
-        webrtc::test::PrintResult("padding-sent",
-                                  "",
-                                  test_info->name(),
-                                  padding_sent_,
-                                  "bytes",
-                                  false);
-        webrtc::test::PrintResult("rtx-media-sent",
-                                  "",
-                                  test_info->name(),
-                                  rtx_media_sent_,
-                                  "bytes",
-                                  false);
-        webrtc::test::PrintResult("total-packets-sent",
-                                  "",
-                                  test_info->name(),
-                                  total_packets_sent_,
-                                  "packets",
-                                  false);
-        webrtc::test::PrintResult("padding-packets-sent",
-                                  "",
-                                  test_info->name(),
-                                  padding_packets_sent_,
-                                  "packets",
-                                  false);
-        webrtc::test::PrintResult("rtx-packets-sent",
-                                  "",
-                                  test_info->name(),
-                                  rtx_media_packets_sent_,
-                                  "packets",
-                                  false);
-        all_ssrcs_sent_->Set();
+        TriggerTestDone();
       }
     }
     rtp_rtcp_->SetREMBData(
@@ -172,13 +145,30 @@ class StreamObserver : public newapi::Transport, public RemoteBitrateObserver {
     return true;
   }
 
-  EventTypeWrapper Wait() { return all_ssrcs_sent_->Wait(120 * 1000); }
+  EventTypeWrapper Wait() { return test_done_->Wait(120 * 1000); }
 
  private:
-  static const unsigned int kExpectedBitrateBps = 1200000;
+  void ReportResult(const std::string& measurement,
+                    size_t value,
+                    const std::string& units) {
+    webrtc::test::PrintResult(
+        measurement, "",
+        ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+        value, units, false);
+  }
+
+  void TriggerTestDone() {
+    ReportResult("total-sent", total_sent_, "bytes");
+    ReportResult("padding-sent", padding_sent_, "bytes");
+    ReportResult("rtx-media-sent", rtx_media_sent_, "bytes");
+    ReportResult("total-packets-sent", total_packets_sent_, "packets");
+    ReportResult("padding-packets-sent", padding_packets_sent_, "packets");
+    ReportResult("rtx-packets-sent", rtx_media_packets_sent_, "packets");
+    test_done_->Set();
+  }
 
   scoped_ptr<CriticalSectionWrapper> critical_section_;
-  scoped_ptr<EventWrapper> all_ssrcs_sent_;
+  scoped_ptr<EventWrapper> test_done_;
   scoped_ptr<RtpHeaderParser> rtp_parser_;
   scoped_ptr<RtpRtcp> rtp_rtcp_;
   internal::TransportAdapter feedback_transport_;
@@ -186,7 +176,7 @@ class StreamObserver : public newapi::Transport, public RemoteBitrateObserver {
   scoped_ptr<RTPPayloadRegistry> payload_registry_;
   scoped_ptr<RemoteBitrateEstimator> remote_bitrate_estimator_;
   Clock* clock_;
-  const size_t num_expected_ssrcs_;
+  unsigned int expected_bitrate_bps_;
   SsrcMap rtx_media_ssrcs_;
   size_t total_sent_;
   size_t padding_sent_;
@@ -217,7 +207,9 @@ class LowRateStreamObserver : public test::DirectTransport,
         sent_bytes_(0),
         total_overuse_bytes_(0),
         number_of_streams_(number_of_streams),
-        rtx_used_(rtx_used) {
+        rtx_used_(rtx_used),
+        send_stream_(NULL),
+        suspended_in_stats_(false) {
     RtpRtcp::Configuration config;
     config.receive_statistics = receive_stats_.get();
     feedback_transport_.Enable();
@@ -230,12 +222,17 @@ class LowRateStreamObserver : public test::DirectTransport,
     AbsoluteSendTimeRemoteBitrateEstimatorFactory rbe_factory;
     const uint32_t kRemoteBitrateEstimatorMinBitrateBps = 10000;
     remote_bitrate_estimator_.reset(
-        rbe_factory.Create(this, clock, kRemoteBitrateEstimatorMinBitrateBps));
+        rbe_factory.Create(this, clock, kMimdControl,
+                           kRemoteBitrateEstimatorMinBitrateBps));
     forward_transport_config_.link_capacity_kbps =
         kHighBandwidthLimitBps / 1000;
     forward_transport_config_.queue_length = 100;  // Something large.
     test::DirectTransport::SetConfig(forward_transport_config_);
     test::DirectTransport::SetReceiver(this);
+  }
+
+  virtual void SetSendStream(const VideoSendStream* send_stream) {
+    send_stream_ = send_stream;
   }
 
   virtual void OnReceiveBitrateChanged(const std::vector<unsigned int>& ssrcs,
@@ -278,6 +275,7 @@ class LowRateStreamObserver : public test::DirectTransport,
     if (remote_bitrate_estimator_->TimeUntilNextProcess() <= 0) {
       remote_bitrate_estimator_->Process();
     }
+    suspended_in_stats_ = send_stream_->GetStats().suspended;
     return true;
   }
 
@@ -290,7 +288,7 @@ class LowRateStreamObserver : public test::DirectTransport,
   std::string GetModifierString() {
     std::string str("_");
     char temp_str[5];
-    sprintf(temp_str, "%zu", number_of_streams_);
+    sprintf(temp_str, "%i", static_cast<int>(number_of_streams_));
     str += std::string(temp_str);
     str += "stream";
     str += (number_of_streams_ > 1 ? "s" : "");
@@ -303,8 +301,11 @@ class LowRateStreamObserver : public test::DirectTransport,
   // This method defines the state machine for the ramp up-down-up test.
   void EvolveTestState(unsigned int bitrate_bps) {
     int64_t now = clock_->TimeInMilliseconds();
+    assert(send_stream_ != NULL);
+    CriticalSectionScoped lock(critical_section_.get());
     switch (test_state_) {
       case kFirstRampup: {
+        EXPECT_FALSE(suspended_in_stats_);
         if (bitrate_bps > kExpectedHighBitrateBps) {
           // The first ramp-up has reached the target bitrate. Change the
           // channel limit, and move to the next test state.
@@ -325,7 +326,7 @@ class LowRateStreamObserver : public test::DirectTransport,
         break;
       }
       case kLowRate: {
-        if (bitrate_bps < kExpectedLowBitrateBps) {
+        if (bitrate_bps < kExpectedLowBitrateBps && suspended_in_stats_) {
           // The ramp-down was successful. Change the channel limit back to a
           // high value, and move to the next test state.
           forward_transport_config_.link_capacity_kbps =
@@ -345,7 +346,7 @@ class LowRateStreamObserver : public test::DirectTransport,
         break;
       }
       case kSecondRampup: {
-        if (bitrate_bps > kExpectedHighBitrateBps) {
+        if (bitrate_bps > kExpectedHighBitrateBps && !suspended_in_stats_) {
           webrtc::test::PrintResult("ramp_up_down_up",
                                     GetModifierString(),
                                     "second_rampup",
@@ -391,6 +392,8 @@ class LowRateStreamObserver : public test::DirectTransport,
   size_t total_overuse_bytes_;
   const size_t number_of_streams_;
   const bool rtx_used_;
+  const VideoSendStream* send_stream_;
+  bool suspended_in_stats_ GUARDED_BY(critical_section_);
 };
 }
 
@@ -399,21 +402,16 @@ class RampUpTest : public ::testing::Test {
   virtual void SetUp() { reserved_ssrcs_.clear(); }
 
  protected:
-  void RunRampUpTest(bool pacing, bool rtx) {
-    const size_t kNumberOfStreams = 3;
-    std::vector<uint32_t> ssrcs;
-    for (size_t i = 0; i < kNumberOfStreams; ++i)
-      ssrcs.push_back(static_cast<uint32_t>(i + 1));
-    uint32_t kRtxSsrcs[kNumberOfStreams] = {111, 112, 113};
+  void RunRampUpTest(bool pacing, bool rtx, size_t num_streams) {
+    std::vector<uint32_t> ssrcs(GenerateSsrcs(num_streams, 100));
+    std::vector<uint32_t> rtx_ssrcs(GenerateSsrcs(num_streams, 200));
     StreamObserver::SsrcMap rtx_ssrc_map;
     if (rtx) {
       for (size_t i = 0; i < ssrcs.size(); ++i)
-        rtx_ssrc_map[kRtxSsrcs[i]] = ssrcs[i];
+        rtx_ssrc_map[rtx_ssrcs[i]] = ssrcs[i];
     }
     test::DirectTransport receiver_transport;
-    int num_expected_ssrcs = kNumberOfStreams + (rtx ? 1 : 0);
-    StreamObserver stream_observer(num_expected_ssrcs,
-                                   rtx_ssrc_map,
+    StreamObserver stream_observer(rtx_ssrc_map,
                                    &receiver_transport,
                                    Clock::GetRealTimeClock());
 
@@ -427,31 +425,50 @@ class RampUpTest : public ::testing::Test {
     receiver_transport.SetReceiver(call->Receiver());
 
     test::FakeEncoder encoder(Clock::GetRealTimeClock());
-    send_config.encoder = &encoder;
-    send_config.internal_source = false;
-    test::FakeEncoder::SetCodecSettings(&send_config.codec, kNumberOfStreams);
-    send_config.codec.plType = 125;
+    send_config.encoder_settings =
+        test::CreateEncoderSettings(&encoder, "FAKE", 125, num_streams);
+
+    if (num_streams == 1) {
+      send_config.encoder_settings.streams[0].target_bitrate_bps = 2000000;
+      send_config.encoder_settings.streams[0].max_bitrate_bps = 2000000;
+    }
+
     send_config.pacing = pacing;
     send_config.rtp.nack.rtp_history_ms = 1000;
-    send_config.rtp.ssrcs.insert(
-        send_config.rtp.ssrcs.begin(), ssrcs.begin(), ssrcs.end());
+    send_config.rtp.ssrcs = ssrcs;
     if (rtx) {
       send_config.rtp.rtx.payload_type = 96;
-      send_config.rtp.rtx.ssrcs.insert(send_config.rtp.rtx.ssrcs.begin(),
-                                       kRtxSsrcs,
-                                       kRtxSsrcs + kNumberOfStreams);
+      send_config.rtp.rtx.ssrcs = rtx_ssrcs;
     }
     send_config.rtp.extensions.push_back(
         RtpExtension(RtpExtension::kAbsSendTime, kAbsoluteSendTimeExtensionId));
 
+    if (num_streams == 1) {
+      // For single stream rampup until 1mbps
+      stream_observer.set_expected_bitrate_bps(1000000);
+    } else {
+      // For multi stream rampup until all streams are being sent. That means
+      // enough birate to sent all the target streams plus the min bitrate of
+      // the last one.
+      int expected_bitrate_bps =
+          send_config.encoder_settings.streams.back().min_bitrate_bps;
+      for (size_t i = 0; i < send_config.encoder_settings.streams.size() - 1;
+           ++i) {
+        expected_bitrate_bps +=
+            send_config.encoder_settings.streams[i].target_bitrate_bps;
+      }
+      stream_observer.set_expected_bitrate_bps(expected_bitrate_bps);
+    }
+
     VideoSendStream* send_stream = call->CreateVideoSendStream(send_config);
 
     scoped_ptr<test::FrameGeneratorCapturer> frame_generator_capturer(
-        test::FrameGeneratorCapturer::Create(send_stream->Input(),
-                                             send_config.codec.width,
-                                             send_config.codec.height,
-                                             30,
-                                             Clock::GetRealTimeClock()));
+        test::FrameGeneratorCapturer::Create(
+            send_stream->Input(),
+            send_config.encoder_settings.streams.back().width,
+            send_config.encoder_settings.streams.back().height,
+            send_config.encoder_settings.streams.back().max_framerate,
+            Clock::GetRealTimeClock()));
 
     send_stream->StartSending();
     frame_generator_capturer->Start();
@@ -482,12 +499,8 @@ class RampUpTest : public ::testing::Test {
     receiver_transport.SetReceiver(call->Receiver());
 
     test::FakeEncoder encoder(Clock::GetRealTimeClock());
-    send_config.encoder = &encoder;
-    send_config.internal_source = false;
-    test::FakeEncoder::SetCodecSettings(&send_config.codec, number_of_streams);
-    send_config.codec.plType = 125;
-    send_config.codec.startBitrate =
-        send_config.codec.simulcastStream[0].minBitrate;
+    send_config.encoder_settings =
+        test::CreateEncoderSettings(&encoder, "FAKE", 125, number_of_streams);
     send_config.rtp.nack.rtp_history_ms = 1000;
     send_config.rtp.ssrcs.insert(
         send_config.rtp.ssrcs.begin(), ssrcs.begin(), ssrcs.end());
@@ -496,11 +509,23 @@ class RampUpTest : public ::testing::Test {
     send_config.suspend_below_min_bitrate = true;
 
     VideoSendStream* send_stream = call->CreateVideoSendStream(send_config);
+    stream_observer.SetSendStream(send_stream);
+
+    size_t width = 0;
+    size_t height = 0;
+    for (size_t i = 0; i < send_config.encoder_settings.streams.size(); ++i) {
+      size_t stream_width = send_config.encoder_settings.streams[i].width;
+      size_t stream_height = send_config.encoder_settings.streams[i].height;
+      if (stream_width > width)
+        width = stream_width;
+      if (stream_height > height)
+        height = stream_height;
+    }
 
     scoped_ptr<test::FrameGeneratorCapturer> frame_generator_capturer(
         test::FrameGeneratorCapturer::Create(send_stream->Input(),
-                                             send_config.codec.width,
-                                             send_config.codec.height,
+                                             width,
+                                             height,
                                              30,
                                              Clock::GetRealTimeClock()));
 
@@ -509,20 +534,46 @@ class RampUpTest : public ::testing::Test {
 
     EXPECT_EQ(kEventSignaled, stream_observer.Wait());
 
+    stream_observer.StopSending();
+    receiver_transport.StopSending();
     frame_generator_capturer->Stop();
     send_stream->StopSending();
 
     call->DestroyVideoSendStream(send_stream);
   }
 
+ private:
+  std::vector<uint32_t> GenerateSsrcs(size_t num_streams,
+                                      uint32_t ssrc_offset) {
+    std::vector<uint32_t> ssrcs;
+    for (size_t i = 0; i != num_streams; ++i)
+      ssrcs.push_back(static_cast<uint32_t>(ssrc_offset + i));
+    return ssrcs;
+  }
+
   std::map<uint32_t, bool> reserved_ssrcs_;
 };
 
-TEST_F(RampUpTest, WithoutPacing) { RunRampUpTest(false, false); }
+TEST_F(RampUpTest, SingleStreamWithoutPacing) {
+  RunRampUpTest(false, false, 1);
+}
 
-TEST_F(RampUpTest, WithPacing) { RunRampUpTest(true, false); }
+TEST_F(RampUpTest, SingleStreamWithPacing) {
+  RunRampUpTest(true, false, 1);
+}
 
-TEST_F(RampUpTest, WithPacingAndRtx) { RunRampUpTest(true, true); }
+TEST_F(RampUpTest, SimulcastWithoutPacing) {
+  RunRampUpTest(false, false, 3);
+}
+
+TEST_F(RampUpTest, SimulcastWithPacing) {
+  RunRampUpTest(true, false, 3);
+}
+
+// TODO(pbos): Re-enable, webrtc:2992.
+TEST_F(RampUpTest, DISABLED_SimulcastWithPacingAndRtx) {
+  RunRampUpTest(true, true, 3);
+}
 
 TEST_F(RampUpTest, UpDownUpOneStream) { RunRampUpDownUpTest(1, false); }
 

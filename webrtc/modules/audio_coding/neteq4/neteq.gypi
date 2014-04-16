@@ -41,11 +41,13 @@
       'include_dirs': [
         # Need Opus header files for the audio classifier.
         '<(DEPTH)/third_party/opus/src/celt',
+        '<(DEPTH)/third_party/opus/src/src',
       ],
       'direct_dependent_settings': {
         'include_dirs': [
           # Need Opus header files for the audio classifier.
           '<(DEPTH)/third_party/opus/src/celt',
+          '<(DEPTH)/third_party/opus/src/src',
         ],
       },
       'export_dependent_settings': [
@@ -187,6 +189,8 @@
             'tools/neteq_performance_test.h',
             'tools/rtp_generator.cc',
             'tools/rtp_generator.h',
+            'tools/neteq_quality_test.cc',
+            'tools/neteq_quality_test.h',
           ],
         }, # neteq_unittest_tools
       ], # targets

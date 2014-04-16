@@ -39,6 +39,8 @@
 #include "talk/app/webrtc/mediastreaminterface.h"
 #include "talk/app/webrtc/peerconnectioninterface.h"
 #include "talk/base/scoped_ptr.h"
+#include "talk/app/webrtc/datachannel.h"
+#include "talk/app/webrtc/datachannelinterface.h"
 
 namespace webrtc {
 class VideoCaptureModule;
@@ -52,6 +54,7 @@ class Conductor
   : public webrtc::PeerConnectionObserver,
     public webrtc::CreateSessionDescriptionObserver,
     public PeerConnectionClientObserver,
+    public webrtc::DataChannelObserver,
     public MainWndCallback {
  public:
   enum CallbackID {
@@ -92,6 +95,18 @@ class Conductor
   //
   // PeerConnectionClientObserver implementation.
   //
+
+  virtual void OnStateChange() {
+    if(datachannel_->state() == webrtc::DataChannelInterface::kOpen) {
+        if(!quit_) {
+          const webrtc::DataBuffer buffer("Hello!");
+          datachannel_->Send(buffer);
+        }
+    }
+  };
+  //  A data buffer was successfully received.
+  virtual void OnMessage(const webrtc::DataBuffer& buffer);
+
 
   virtual void OnSignedIn();
 
@@ -139,6 +154,8 @@ class Conductor
   std::map<std::string, talk_base::scoped_refptr<webrtc::MediaStreamInterface> >
       active_streams_;
   std::string server_;
+  bool quit_;
+  talk_base::scoped_refptr<webrtc::DataChannelInterface> datachannel_;
 };
 
 #endif  // PEERCONNECTION_SAMPLES_CLIENT_CONDUCTOR_H_
