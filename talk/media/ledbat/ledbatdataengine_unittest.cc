@@ -134,6 +134,24 @@ TEST_F(LedbatDataEngineTest, SendDataOneWay) {
 	EXPECT_EQ("chan1 says hi", recv2()->last_received_data());
 }
 
+TEST_F(LedbatDataEngineTest, SendDataMultipleMessages) {
+  SetupConnectedChannels(true, false);
+
+  EXPECT_EQ_WAIT(UTP_STATE_CONNECT, chan1()->utp_state(), 1000);
+  cricket::SendDataResult result;
+  EXPECT_TRUE(SendData(chan1(), "chan1 says hi", &result));
+  EXPECT_EQ(cricket::SDR_SUCCESS, result);
+  EXPECT_TRUE_WAIT(recv2()->has_received_data(), 1000);
+  EXPECT_EQ("chan1 says hi", recv2()->last_received_data());
+
+  
+  chan2()->OnReadyToSend(true);
+
+  EXPECT_TRUE(SendData(chan1(), "chan1 says hi again!", &result));
+  EXPECT_EQ(cricket::SDR_SUCCESS, result);
+  EXPECT_EQ_WAIT("chan1 says hi again!", recv2()->last_received_data(), 1000);
+}
+
 TEST_F(LedbatDataEngineTest, SendDataTwoWays) {
 	SetupConnectedChannels(true, true);
 

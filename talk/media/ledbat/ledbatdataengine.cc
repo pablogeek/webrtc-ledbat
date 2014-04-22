@@ -1,6 +1,7 @@
 #include "talk/media/ledbat/ledbatdataengine.h"
 #include "libutp/utp.h"
 #include <unistd.h>
+#include "talk/base/messagequeue.h"
 
 namespace cricket {
 
@@ -49,13 +50,14 @@ LedbatDataMediaChannel::~LedbatDataMediaChannel() {
 }
 
 bool LedbatDataMediaChannel::SetSend(bool send) {
-  if (!sending_) {
+  if (send && !sending_) {
+    talk_base::Thread::Current()->Post(this, MSG_DEFERRED_ACKS);
+    talk_base::Thread::Current()->Post(this, MSG_CHECK_TIMEOUTS);
+    utp_issue_deferred_acks(ctx_);
     utp_connect(utp_sock_, (sockaddr*)&ip4addr_, sizeof(ip4addr_));
     sending_ = true;
-    return true;
-  } else {
-    return false;
-  }
+  } 
+  return true;
 }
 
 int LedbatDataMediaChannel::utp_state() {
@@ -65,14 +67,12 @@ int LedbatDataMediaChannel::utp_state() {
 void LedbatDataMediaChannel::OnPacketReceived(talk_base::Buffer* packet, 
     const talk_base::PacketTime& packet_time) {
 	ReceiveDataParams params;
-
   // TODO: Investigate Buffer operator= to make sure it does a copy on
   // pointer dereference
   talk_base::Buffer packet_copy = *packet; 
 
-	if (!utp_process_udp(ctx_, (unsigned char*)packet_copy.data(), 
-      packet->length(), (struct sockaddr *)&ip4addr_, 
-      (socklen_t)sizeof(ip4addr_))) {
+	if (!utp_process_udp(ctx_, (unsigned char*)packet_copy.data(), packet->length(), 
+      (struct sockaddr *)&ip4addr_, (socklen_t)sizeof(ip4addr_))) {
     Log("UDP packet not handled by UTP.  Ignoring.");     
   }
 }
@@ -132,6 +132,21 @@ bool LedbatDataMediaChannel::RemoveRecvStream(uint32 ssrc) {
   return true;
 }
 
+void LedbatDataMediaChannel::OnMessage(talk_base::Message* message) {
+  switch (message->message_id) {
+    case MSG_CHECK_TIMEOUTS: {
+      utp_check_timeouts(ctx_);
+      talk_base::Thread::Current()->PostDelayed(500, this, MSG_CHECK_TIMEOUTS);
+      break;
+    }
+    case MSG_DEFERRED_ACKS: {
+      utp_issue_deferred_acks(ctx_);
+      talk_base::Thread::Current()->PostDelayed(100, this, MSG_DEFERRED_ACKS);
+      break;
+    }
+  } 
+}
+
 void LedbatDataMediaChannel::Log(const char *fmt, ...) {
   if(debug_log_) {
     va_list ap;
@@ -149,23 +164,15 @@ void LedbatDataMediaChannel::SetDebugName(std::string name) {
 }
 
 bool LedbatDataMediaChannel::SendData(const SendDataParams& params,
-                                      const talk_base::Buffer& payload,
-                                      SendDataResult* result) {
-  if (result) {
-    // Preset |result| to assume an error.  If SendData succeeds, we'll
-    // overwrite |*result| once more at the end.
-    *result = SDR_ERROR;
-  }
-
-  char *send_buffer_ = strdup(payload.data());
+              const talk_base::Buffer& payload,
+              SendDataResult* result) {
+  char *send_buffer_ = (char *)payload.data();
   char *send_buffer_index_ = send_buffer_;
   size_t buf_len_ = payload.length();
-
 	while (send_buffer_index_ < send_buffer_ + buf_len_) {
     size_t sent;
 
-    sent = utp_write(utp_sock_, send_buffer_index_, 
-      send_buffer_ + buf_len_ - send_buffer_index_);
+    sent = utp_write(utp_sock_, send_buffer_index_, send_buffer_ + buf_len_ - send_buffer_index_);
     if (sent == 0) {
       Log("Socket no longer writable");
       return false;
@@ -174,14 +181,21 @@ bool LedbatDataMediaChannel::SendData(const SendDataParams& params,
     send_buffer_index_ += sent;
 
     if (send_buffer_index_ == send_buffer_ + buf_len_) {
-      Log("wrote %zd bytes; buffer now empty", sent);
-      send_buffer_index_ = send_buffer_;
+        Log("wrote %zd bytes; buffer now empty", sent);
+        send_buffer_index_ = send_buffer_;
     } else {
-      Log("wrote %zd bytes; %d bytes left in buffer", sent, 
-        send_buffer_ + buf_len_ - send_buffer_index_);
+      Log("wrote %zd bytes; %d bytes left in buffer", sent, send_buffer_ + buf_len_ - send_buffer_index_);
     }
     *result = cricket::SDR_SUCCESS;
     return true;
+  }
+  return false;
+}
+
+void LedbatDataMediaChannel::OnReadyToSend(bool ready) {
+  if (ready) {
+    Log("Ready to send.");
+    utp_issue_deferred_acks(ctx_);
   }
 }
 
@@ -209,6 +223,10 @@ uint64 LedbatDataMediaChannel::OnUTPStateChange(utp_callback_arguments *a) {
   switch (a->state) {
     case UTP_STATE_CONNECT:
     case UTP_STATE_WRITABLE:
+      Log("Channel is writable!");
+      LOG(LS_INFO) << "LEDBAT channel is writable";
+      SignalReadyToSend(true);
+      OnReadyToSend(true);
       break;
     case UTP_STATE_EOF:
       Log("Received EOF from socket; closing");
@@ -230,16 +248,17 @@ uint64 LedbatDataMediaChannel::OnUTPAccept(utp_callback_arguments *a) {
 
 // Log received data 
 uint64 LedbatDataMediaChannel::OnUTPRead(utp_callback_arguments *a) {
-  Log("Received message: %s", a->buf);
-  utp_read_drained(a->socket);
+  std::string message = std::string((char *)a->buf, a->len);
+  Log("Received message: %s", message.c_str());
 
   ReceiveDataParams params;
-  SignalDataReceived(params, (char *)a->buf, a->len);
+  talk_base::Buffer buffer(a->buf, a->len);
+  SignalDataReceived(params, buffer.data(), a->len);
+  utp_read_drained(a->socket);
   return 0;
 }
 
-LedbatDataMediaChannel* ledbat_get_callback_media_channel(
-    utp_callback_arguments *a) {
+LedbatDataMediaChannel* ledbat_get_callback_media_channel(utp_callback_arguments *a) {
   void *user_data = utp_context_get_userdata(a->context);
   return (LedbatDataMediaChannel*)user_data; 
 }
