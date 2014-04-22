@@ -92,28 +92,41 @@ void Conductor::Close() {
 }
 
 void Conductor::ReadFile() {
+  ASSERT(t_ == talk_base::Thread::Current());
   if(sendfile_ != NULL && instream_ == NULL && ready_to_send_) {
     LOG(LS_INFO) << "Reading from file: " << sendfile_;
     instream_ = new std::ifstream(sendfile_, std::ifstream::binary);
   }
 
   if (instream_ && ready_to_send_) {
+    // Bytes to be sent after a possible closing of instream_.
+    // SendData release control over the thread and must be called after
+    // nulling instream_ to avoid race condition.
+    int send_bytes = -1;
+
     if (instream_->read(inbuffer_, BUFLEN)) {
-      SendData(inbuffer_, instream_->gcount());
+      send_bytes = instream_->gcount();
     }
 
     if (instream_->eof()) {
-      size_t gcount = instream_->gcount();
+      if (instream_->gcount() > 0) {
+        send_bytes = instream_->gcount();
+      }
+
+      instream_->close();
+      delete instream_;
+      sendfile_ = NULL;
+      instream_ = NULL;
+    } else if (instream_->bad()) {
+      LOG(LS_ERROR) << "Bad instream!";
       instream_->close();
       delete instream_;
       instream_ = NULL;
       sendfile_ = NULL;
+    }
 
-      if (gcount > 0) {
-          SendData(inbuffer_, gcount);
-      }
-    } else if (instream_->bad()) {
-      LOG(LS_ERROR) << "Bad instream!";
+    if(send_bytes > 0) {
+      SendData(inbuffer_, send_bytes);
     }
   }
 }
