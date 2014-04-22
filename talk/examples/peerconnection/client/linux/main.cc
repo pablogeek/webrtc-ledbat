@@ -24,13 +24,11 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #include "talk/examples/peerconnection/client/conductor.h"
 #include "talk/examples/peerconnection/client/flagdefs.h"
 #include "talk/examples/peerconnection/client/linux/main_wnd.h"
 #include "talk/examples/peerconnection/client/peer_connection_client.h"
 #include "talk/base/basictypes.h"
-
 #include "talk/base/ssladapter.h"
 #include "talk/base/thread.h"
 
@@ -44,7 +42,8 @@ class CustomSocketServer : public talk_base::PhysicalSocketServer {
   void set_conductor(Conductor* conductor) { conductor_ = conductor; }
 
   // Override so that we can also pump the GTK message loop.
-  virtual bool Wait(int cms, bool process_io) {
+  virtual bool Wait(int cms, bool process_io) {    
+    conductor_->SendUIThreadCallback(Conductor::READ_FILE, NULL);
     return talk_base::PhysicalSocketServer::Wait(0/*cms == -1 ? 1 : cms*/,
                                                  process_io);
   }
@@ -63,6 +62,19 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
+  Conductor::ChannelType channel_type;
+  if(strcmp(FLAG_channeltype, "rtp") == 0) {
+    channel_type = Conductor::RTP;
+  } else if(strcmp(FLAG_channeltype, "sctp") == 0) {
+    channel_type = Conductor::SCTP;
+  } else if(strcmp(FLAG_channeltype, "ledbat") == 0) {
+    channel_type = Conductor::LEDBAT;
+  } else {
+    printf("Error: %s is not a valid channel type. " \
+      "Choose one of: rtp|sctp|ledbat.\n", FLAG_channeltype);
+    return -1;
+  }
+  
   // Abort if the user specifies a port that is outside the allowed
   // range [1, 65535].
   if ((FLAG_port < 1) || (FLAG_port > 65535)) {
@@ -79,10 +91,10 @@ int main(int argc, char* argv[]) {
   // Must be constructed after we set the socketserver.
   PeerConnectionClient client;
   talk_base::scoped_refptr<Conductor> conductor(
-      new talk_base::RefCountedObject<Conductor>(&client, thread));
+      new talk_base::RefCountedObject<Conductor>(&client, thread, channel_type,
+        FLAG_connect, (char *)FLAG_sendfile));
   socket_server.set_client(&client);
   socket_server.set_conductor(conductor);
-
   conductor.get()->StartLogin("localhost", 8888);
 
   thread->ProcessMessages(talk_base::kForever);

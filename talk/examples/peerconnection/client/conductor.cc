@@ -28,7 +28,7 @@
 #include "talk/examples/peerconnection/client/conductor.h"
 
 #include <utility>
-
+#include <fstream>
 #include "talk/app/webrtc/videosourceinterface.h"
 #include "talk/base/common.h"
 #include "talk/base/json.h"
@@ -68,9 +68,12 @@ class DummySetSessionDescriptionObserver
   ~DummySetSessionDescriptionObserver() {}
 };
 
-Conductor::Conductor(PeerConnectionClient* client, talk_base::Thread *t)
+Conductor::Conductor(PeerConnectionClient* client, talk_base::Thread *t, 
+  ChannelType channel_type, bool connect, char* sendfile)
   : peer_id_(-1),
-    client_(client), t_(t) {
+    client_(client), t_(t), channel_type_(channel_type), connect_(connect), 
+    sendfile_(sendfile), BUFLEN(64), instream_(NULL), ready_to_send_(false) {
+  inbuffer_ = new char [BUFLEN];
   client_->RegisterObserver(this);
   thread_message_handler_ = new ThreadMessageHandler(this);
 }
@@ -88,6 +91,33 @@ void Conductor::Close() {
   DeletePeerConnection();
 }
 
+void Conductor::ReadFile() {
+  if(sendfile_ != NULL && instream_ == NULL && ready_to_send_) {
+    LOG(LS_INFO) << "Reading from file: " << sendfile_;
+    instream_ = new std::ifstream(sendfile_, std::ifstream::binary);
+  }
+
+  if (instream_ && ready_to_send_) {
+    if (instream_->read(inbuffer_, BUFLEN)) {
+      SendData(inbuffer_, instream_->gcount());
+    }
+
+    if (instream_->eof()) {
+      size_t gcount = instream_->gcount();
+      instream_->close();
+      delete instream_;
+      instream_ = NULL;
+      sendfile_ = NULL;
+
+      if (gcount > 0) {
+          SendData(inbuffer_, gcount);
+      }
+    } else if (instream_->bad()) {
+      LOG(LS_ERROR) << "Bad instream!";
+    }
+  }
+}
+
 bool Conductor::InitializePeerConnection() {
   ASSERT(peer_connection_factory_.get() == NULL);
   ASSERT(peer_connection_.get() == NULL);
@@ -103,10 +133,21 @@ bool Conductor::InitializePeerConnection() {
   webrtc::PeerConnectionInterface::IceServer server;
   server.uri = GetPeerConnectionString();
   servers.push_back(server);
+  switch (channel_type_) {
+    case RTP: {
+      global_constraints.SetAllowRtpDataChannels();
+      break;
+    }
+    case SCTP: {
+      global_constraints.SetAllowDtlsSctpDataChannels();
+      break;
+    }
+    case LEDBAT: {
+      global_constraints.SetAllowDtlsSctpDataChannels();
+      global_constraints.SetAllowLedbatDataChannels();
+    }
+  }
   
-  global_constraints.SetAllowDtlsSctpDataChannels();
-  global_constraints.SetAllowLedbatDataChannels();
-
   constraints.SetMandatoryReceiveAudio(false);
   constraints.SetMandatoryReceiveVideo(false);
   
@@ -118,10 +159,7 @@ bool Conductor::InitializePeerConnection() {
     DeletePeerConnection();
   }
 
-  char* connect;
-  connect = getenv("CONNECT");
-
-  if (connect != NULL) {
+  if (connect_) {
     LOG(LS_INFO) << "Creating data channel on connecting client! ";
     data_channel_ = peer_connection_.get()->CreateDataChannel("TEST_DC_LABEL", NULL);
     data_channel_->RegisterObserver(this);
@@ -163,7 +201,7 @@ void Conductor::OnAddStream(webrtc::MediaStreamInterface* stream) {
 }
 
 void Conductor::OnMessage(const webrtc::DataBuffer& buffer) {
-    LOG(INFO) << "\n\n### Message received ###:\n " << buffer.data.data() << "\n";
+    LOG(INFO) << "\n\n### Message received ###:\n " << std::string(buffer.data.data(), buffer.size()) << "\n";
 };
 
 void Conductor::OnRemoveStream(webrtc::MediaStreamInterface* stream) {
@@ -211,9 +249,8 @@ void Conductor::OnPeerConnected(int id, const std::string& name) {
   // Refresh the list if we're showing it.
   fprintf(stderr, "Peer connected %d:%s!\n", id, name.c_str());
   
-  char* connect;
-  connect = getenv("CONNECT");
-  if (connect != NULL) {
+  
+  if (connect_) {
     fprintf(stderr, "Connecting!\n");
     ConnectToPeer(id);
   } else {
@@ -387,6 +424,17 @@ void Conductor::UIThreadCallback(int msg_id, void* data) {
       ASSERT(active_streams_.empty());
       break;
 
+    case SEND_DATA: {
+      const webrtc::DataBuffer* buffer = (webrtc::DataBuffer*)data;
+      data_channel_->Send(*buffer);
+      break;
+    }
+
+    case READ_FILE: {
+      ReadFile();
+      break;
+    }
+
     case SEND_MESSAGE_TO_PEER: {
       LOG(INFO) << "SEND_MESSAGE_TO_PEER";
       std::string* msg = reinterpret_cast<std::string*>(data);
@@ -402,7 +450,7 @@ void Conductor::UIThreadCallback(int msg_id, void* data) {
         pending_messages_.pop_front();
 
         if (!client_->SendToPeer(peer_id_, *msg) && peer_id_ != -1) {
-          LOG(LS_ERROR) << "SendToPeer failed";
+          LOG(LS_ERROR) << "SendToPeer failed to peer_id " << peer_id_;
           DisconnectFromServer();
         }
         delete msg;

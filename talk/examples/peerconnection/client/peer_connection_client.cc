@@ -184,13 +184,17 @@ void PeerConnectionClient::KillServer() {
 }
 
 bool PeerConnectionClient::SendToPeer(int peer_id, const std::string& message) {
-  if (state_ != CONNECTED)
+  if (state_ != CONNECTED) {
+    LOG(LS_ERROR) << "Cannot send to peer when not in CONNECTED state!";
     return false;
+  }
 
   ASSERT(is_connected());
   ASSERT(control_socket_->GetState() == talk_base::Socket::CS_CLOSED);
-  if (!is_connected() || peer_id == -1)
+  if (!is_connected() || peer_id == -1) {
+    LOG(LS_ERROR) << "Not connected!";
     return false;
+  }
 
   char headers[1024];
   sprintfn(headers, sizeof(headers),
@@ -257,6 +261,7 @@ bool PeerConnectionClient::ConnectControlSocket() {
   ASSERT(control_socket_->GetState() == talk_base::Socket::CS_CLOSED);
   int err = control_socket_->Connect(server_address_);
   if (err == SOCKET_ERROR) {
+    LOG(LS_ERROR) << "SOCKET_ERROR on control socket!";
     Close();
     return false;
   }

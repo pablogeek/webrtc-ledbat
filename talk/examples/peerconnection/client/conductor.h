@@ -69,9 +69,18 @@ class Conductor
     PEER_CONNECTION_ERROR,
     NEW_STREAM_ADDED,
     STREAM_REMOVED,
+    SEND_DATA,
+    READ_FILE,
   };
 
-  Conductor(PeerConnectionClient* client, talk_base::Thread *t);
+  enum ChannelType {
+    RTP,
+    SCTP,
+    LEDBAT
+  };
+
+  Conductor(PeerConnectionClient* client, talk_base::Thread *t, 
+    ChannelType channel_type, bool connect, char* sendfile);
 
   bool connection_active() const;
 
@@ -79,12 +88,28 @@ class Conductor
   virtual void StartLogin(const std::string& server, int port);
   virtual void UIThreadCallback(int msg_id, void* data);
 
+  void ReadFile();
+
+  void SendData(char* data, size_t len) {
+    webrtc::DataBuffer buffer(talk_base::Buffer(data, len), true);;
+    LOG(LS_INFO) << "Sending data: \"" << data << "\"";
+    if(!data_channel_->Send(buffer)) {
+      LOG(LS_ERROR) << "data_channel_->Send: FAILED!";
+    }
+  } 
+
+  void SendData(std::string message) {
+    SendData((char *)message.c_str(), message.length());
+  } 
+
+  void SendUIThreadCallback(int msg_id, void* data);
+
  protected:
   ~Conductor();
   bool InitializePeerConnection();
   void DeletePeerConnection();
   void EnsureStreamingUI();
-  void SendUIThreadCallback(int msg_id, void* data);
+  
   cricket::VideoCapturer* OpenVideoCaptureDevice();
 
   //
@@ -95,19 +120,11 @@ class Conductor
     if (data_channel_) {
       LOG(LS_INFO) << "State change local: " << data_channel_->state();
       if(data_channel_->state() == webrtc::DataChannelInterface::kOpen) {
-          if(!quit_) {
-            const webrtc::DataBuffer buffer("Hello!");
-            LOG(LS_INFO) << "Sending data: " << buffer.data.data();
-            if(!data_channel_->Send(buffer)) {
-              LOG(LS_ERROR) << "data_channel_->Send: FAILED!";
-            }
-
-            const webrtc::DataBuffer buffer2("Hello again!");
-            LOG(LS_INFO) << "Sending data: " << buffer2.data.data();
-            if(!data_channel_->Send(buffer2)) {
-              LOG(LS_ERROR) << "data_channel_->Send: FAILED!";
-            }
-          }
+        ready_to_send_ = true;
+        if(!quit_) {
+          SendData("Hello!");
+          SendData("Hello again!");
+        }
       }
     } else {
       LOG(LS_INFO) << "State change remote: " << remote_data_channel_->state();
@@ -174,6 +191,14 @@ class Conductor
   talk_base::scoped_refptr<webrtc::DataChannelInterface> remote_data_channel_;
   webrtc::FakeConstraints constraints;
   webrtc::FakeConstraints global_constraints;
+  ChannelType channel_type_;
+  bool connect_;
+  char* sendfile_;
+  bool ready_to_send_;
+
+  std::ifstream* instream_;
+  const size_t BUFLEN;
+  char* inbuffer_;
 };
 
 class ThreadMessageHandler : public talk_base::MessageHandler {

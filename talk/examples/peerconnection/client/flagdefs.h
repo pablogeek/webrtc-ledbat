@@ -47,4 +47,11 @@ DEFINE_bool(autocall, false, "Call the first available other client on "
   "the server without user intervention.  Note: this flag should only be set "
   "to true on one of the two clients.");
 
+DEFINE_bool(connect, false, "Create a data channel and connect to the first "
+  "available other client on "
+  "the server. Note: this flag should only be set "
+  "to true on one of the two clients.");
+DEFINE_string(channeltype, "ledbat", "The channel type: rtp|sctp|ledbat.");
+DEFINE_string(sendfile, NULL, "The path to a file to be sent.");
+
 #endif  // TALK_EXAMPLES_PEERCONNECTION_CLIENT_FLAGDEFS_H_
