@@ -171,6 +171,18 @@ void PeerConnectionClient::DoConnect() {
   }
 }
 
+void PeerConnectionClient::KillServer() {
+  control_socket_.reset(CreateClientSocket(server_address_.ipaddr().family()));
+  hanging_get_.reset(CreateClientSocket(server_address_.ipaddr().family()));
+  InitSocketSignals();
+  char buffer[1024];
+  sprintfn(buffer, sizeof(buffer),
+           "GET /quit HTTP/1.0\r\n\r\n");
+  onconnect_data_ = buffer;
+  state_ = KILLING_SERVER;
+  ConnectControlSocket();
+}
+
 bool PeerConnectionClient::SendToPeer(int peer_id, const std::string& message) {
   if (state_ != CONNECTED)
     return false;
@@ -382,6 +394,9 @@ void PeerConnectionClient::OnRead(talk_base::AsyncSocket* socket) {
       } else if (state_ == SIGNING_OUT) {
         Close();
         callback_->OnDisconnected();
+      } else if (state_ == KILLING_SERVER) {
+        LOG(INFO) << __FUNCTION__ << " exiting process.";
+        SignOut();
       } else if (state_ == SIGNING_OUT_WAITING) {
         SignOut();
       }
@@ -515,7 +530,7 @@ void PeerConnectionClient::OnClose(talk_base::AsyncSocket* socket, int err) {
       callback_->OnMessageSent(err);
     }
   } else {
-    if (socket == control_socket_.get()) {
+    if (socket == control_socket_.get() && !callback_->quit()) {
       LOG(WARNING) << "Connection refused; retrying in 2 seconds";
       talk_base::Thread::Current()->PostDelayed(kReconnectDelay, this, 0);
     } else {

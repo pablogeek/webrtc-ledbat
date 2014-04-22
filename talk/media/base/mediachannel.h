@@ -1256,6 +1256,8 @@ class DataMediaChannel : public MediaChannel {
   virtual bool SetSendCodecs(const std::vector<DataCodec>& codecs) = 0;
   virtual bool SetRecvCodecs(const std::vector<DataCodec>& codecs) = 0;
 
+  virtual bool NeedsChannelSetup() { return false; }
+
   virtual bool MuteStream(uint32 ssrc, bool on) { return false; }
   // TODO(pthatcher): Implement this.
   virtual bool GetStats(DataMediaInfo* info) { return true; }

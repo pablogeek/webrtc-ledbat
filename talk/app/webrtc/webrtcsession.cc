@@ -505,6 +505,11 @@ bool WebRtcSession::Initialize(
       &value, NULL) && value) {
     LOG(LS_INFO) << "Allowing RTP data engine.";
     data_channel_type_ = cricket::DCT_RTP;
+  } else if (FindConstraint(
+      constraints, MediaConstraintsInterface::kEnableLedbatDataChannels,
+      &value, NULL) && value) {
+    LOG(LS_INFO) << "Allowing LEDBAT data engine.";
+    data_channel_type_ = cricket::DCT_LEDBAT;
   } else {
     // DTLS has to be enabled to use SCTP.
     if (!options.disable_sctp_data_channels && dtls_enabled_) {
@@ -743,6 +748,8 @@ bool WebRtcSession::SetLocalDescription(SessionDescriptionInterface* desc,
   talk_base::SSLRole role;
   if (data_channel_type_ == cricket::DCT_SCTP && GetSslRole(&role)) {
     mediastream_signaling_->OnDtlsRoleReadyForSctp(role);
+  } else if (data_channel_type_ == cricket::DCT_LEDBAT && GetSslRole(&role)) {
+    mediastream_signaling_->OnDtlsRoleReadyForLedbat(role);
   }
   if (error() != cricket::BaseSession::ERROR_NONE) {
     return BadLocalSdp(desc->type(), GetSessionErrorMsg(), err_desc);
@@ -799,6 +806,8 @@ bool WebRtcSession::SetRemoteDescription(SessionDescriptionInterface* desc,
   talk_base::SSLRole role;
   if (data_channel_type_ == cricket::DCT_SCTP && GetSslRole(&role)) {
     mediastream_signaling_->OnDtlsRoleReadyForSctp(role);
+  } else if (data_channel_type_ == cricket::DCT_LEDBAT && GetSslRole(&role)) {
+    mediastream_signaling_->OnDtlsRoleReadyForLedbat(role);
   }
 
   if (error() != cricket::BaseSession::ERROR_NONE) {
@@ -1155,6 +1164,15 @@ talk_base::scoped_refptr<DataChannel> WebRtcSession::CreateDataChannel(
                     << "because the id is already in use or out of range.";
       return NULL;
     }
+  } else if (data_channel_type_ == cricket::DCT_LEDBAT) {
+    if (new_config.id < 0) {
+      talk_base::SSLRole role;
+      if (GetSslRole(&role) &&
+          !mediastream_signaling_->AllocateSctpSid(role, &new_config.id)) {
+        LOG(LS_ERROR) << "No id can be allocated for the LEDBAT data channel.";
+        return NULL;
+      }
+    }
   }
 
   talk_base::scoped_refptr<DataChannel> channel(DataChannel::Create(
@@ -1498,13 +1516,19 @@ bool WebRtcSession::CreateVideoChannel(const cricket::ContentInfo* content) {
 
 bool WebRtcSession::CreateDataChannel(const cricket::ContentInfo* content) {
   bool sctp = (data_channel_type_ == cricket::DCT_SCTP);
+  bool ledbat = (data_channel_type_ == cricket::DCT_LEDBAT);
   data_channel_.reset(channel_manager_->CreateDataChannel(
-      this, content->name, !sctp, data_channel_type_));
+      this, content->name, !sctp && !ledbat, data_channel_type_));
   if (!data_channel_.get()) {
     return false;
   }
-  if (sctp) {
+  if (sctp ) {
     mediastream_signaling_->OnDataTransportCreatedForSctp();
+    data_channel_->SignalDataReceived.connect(
+        this, &WebRtcSession::OnDataChannelMessageReceived);
+  }
+  if (ledbat) {
+    mediastream_signaling_->OnDataTransportCreatedForLedbat();
     data_channel_->SignalDataReceived.connect(
         this, &WebRtcSession::OnDataChannelMessageReceived);
   }
@@ -1528,11 +1552,15 @@ void WebRtcSession::OnDataChannelMessageReceived(
     cricket::DataChannel* channel,
     const cricket::ReceiveDataParams& params,
     const talk_base::Buffer& payload) {
-  ASSERT(data_channel_type_ == cricket::DCT_SCTP);
-  if (params.type == cricket::DMT_CONTROL &&
-      mediastream_signaling_->IsSctpSidAvailable(params.ssrc)) {
-    // Received CONTROL on unused sid, process as an OPEN message.
-    mediastream_signaling_->AddDataChannelFromOpenMessage(params, payload);
+  ASSERT(data_channel_type_ == cricket::DCT_SCTP || data_channel_type_ == cricket::DCT_LEDBAT);
+  if (data_channel_type_ == cricket::DCT_SCTP) {
+    if (params.type == cricket::DMT_CONTROL &&
+        mediastream_signaling_->IsSctpSidAvailable(params.ssrc)) {
+      // Received CONTROL on unused sid, process as an OPEN message.
+      mediastream_signaling_->AddDataChannelFromOpenMessage(params, payload, data_channel_type_);
+    }
+  } else if (data_channel_type_ == cricket::DCT_LEDBAT) {
+    mediastream_signaling_->AddDataChannelFromOpenMessage(params, payload, data_channel_type_);
   }
   // otherwise ignore the message.
 }

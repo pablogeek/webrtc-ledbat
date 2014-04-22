@@ -151,6 +151,9 @@ class DataChannel : public DataChannelInterface,
 
   // Sets the SCTP sid and adds to transport layer if not set yet.
   void SetSctpSid(int sid);
+
+  void SetSid(int sid);
+
   // Called when the transport channel is created.
   void OnTransportChannelCreated();
 
@@ -163,6 +166,9 @@ class DataChannel : public DataChannelInterface,
   // Set the SSRC this channel should use to receive data from the
   // underlying data engine.
   void SetReceiveSsrc(uint32 receive_ssrc);
+
+  void OnLedbatChannelReady();
+  void OnTransportChannelCreatedLedbat();
 
   cricket::DataChannelType data_channel_type() const {
     return data_channel_type_;

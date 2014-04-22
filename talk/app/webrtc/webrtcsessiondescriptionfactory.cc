@@ -193,6 +193,9 @@ void WebRtcSessionDescriptionFactory::CreateOffer(
   if (data_channel_type_ == cricket::DCT_SCTP &&
       mediastream_signaling_->HasDataChannels()) {
     options.data_channel_type = cricket::DCT_SCTP;
+  } else if(data_channel_type_ == cricket::DCT_LEDBAT &&
+      mediastream_signaling_->HasDataChannels()) {
+    options.data_channel_type = cricket::DCT_LEDBAT;
   }
 
   CreateSessionDescriptionRequest request(
@@ -248,6 +251,8 @@ void WebRtcSessionDescriptionFactory::CreateAnswer(
   // handled here.
   if (data_channel_type_ == cricket::DCT_SCTP) {
     options.data_channel_type = cricket::DCT_SCTP;
+  } else if(data_channel_type_ == cricket::DCT_LEDBAT) {
+    options.data_channel_type = cricket::DCT_LEDBAT;
   }
 
   CreateSessionDescriptionRequest request(

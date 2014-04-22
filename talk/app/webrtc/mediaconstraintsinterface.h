@@ -106,6 +106,8 @@ class MediaConstraintsInterface {
   // PeerConnection constraint keys.
   // Temporary pseudo-constraints used to enable DTLS-SRTP
   static const char kEnableDtlsSrtp[];  // Enable DTLS-SRTP
+
+  static const char kEnableLedbatDataChannels[];  // Enable LEDBAT
   // Temporary pseudo-constraints used to enable DataChannels
   static const char kEnableRtpDataChannels[];  // Enable RTP DataChannels
   // Google-specific constraint keys.

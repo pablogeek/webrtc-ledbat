@@ -230,7 +230,7 @@ bool MediaStreamSignaling::AllocateSctpSid(talk_base::SSLRole role, int* sid) {
 }
 
 bool MediaStreamSignaling::HasDataChannels() const {
-  return !rtp_data_channels_.empty() || !sctp_data_channels_.empty();
+  return !rtp_data_channels_.empty() || !ledbat_data_channels_.empty() || !sctp_data_channels_.empty();
 }
 
 bool MediaStreamSignaling::AddDataChannel(DataChannel* data_channel) {
@@ -243,6 +243,14 @@ bool MediaStreamSignaling::AddDataChannel(DataChannel* data_channel) {
       return false;
     }
     rtp_data_channels_[data_channel->label()] = data_channel;
+  } else if (data_channel->data_channel_type() == cricket::DCT_LEDBAT) {
+    if (ledbat_data_channels_.find(data_channel->label()) !=
+        ledbat_data_channels_.end()) {
+      LOG(LS_ERROR) << "DataChannel with label " << data_channel->label()
+                    << " already exists.";
+      return false;
+    }
+    ledbat_data_channels_[data_channel->label()] = data_channel;
   } else {
     ASSERT(data_channel->data_channel_type() == cricket::DCT_SCTP);
     sctp_data_channels_.push_back(data_channel);
@@ -252,7 +260,8 @@ bool MediaStreamSignaling::AddDataChannel(DataChannel* data_channel) {
 
 bool MediaStreamSignaling::AddDataChannelFromOpenMessage(
     const cricket::ReceiveDataParams& params,
-    const talk_base::Buffer& payload) {
+    const talk_base::Buffer& payload,
+    cricket::DataChannelType data_channel_type) {
   if (!data_channel_factory_) {
     LOG(LS_WARNING) << "Remote peer requested a DataChannel but DataChannels "
                     << "are not supported.";
@@ -275,7 +284,15 @@ bool MediaStreamSignaling::AddDataChannelFromOpenMessage(
     LOG(LS_ERROR) << "Failed to create DataChannel from the OPEN message.";
     return false;
   }
-  sctp_data_channels_.push_back(channel);
+  
+  if (data_channel_type == cricket::DCT_SCTP) {
+    sctp_data_channels_.push_back(channel);
+  } else if (data_channel_type == cricket::DCT_LEDBAT) {
+    ledbat_data_channels_[label] = channel;
+  } else {
+    ASSERT(false);
+  }
+
   stream_observer_->OnAddDataChannel(channel);
   return true;
 }
@@ -494,6 +511,10 @@ void MediaStreamSignaling::OnDataChannelClose() {
   SctpDataChannels::iterator it2 = sctp_data_channels_.begin();
   for (; it2 != sctp_data_channels_.end(); ++it2) {
     (*it2)->OnDataEngineClose();
+  }
+  LedbatDataChannels::iterator it3 = ledbat_data_channels_.begin();
+  for (; it3 != ledbat_data_channels_.end(); ++it3) {
+    it3->second->OnDataEngineClose();
   }
 }
 
@@ -939,6 +960,13 @@ void MediaStreamSignaling::OnDataTransportCreatedForSctp() {
   }
 }
 
+void MediaStreamSignaling::OnDataTransportCreatedForLedbat() {
+  LedbatDataChannels::iterator it = ledbat_data_channels_.begin();
+  for (; it != ledbat_data_channels_.end(); ++it) {
+    it->second->OnTransportChannelCreatedLedbat();
+  }
+}
+
 void MediaStreamSignaling::OnDtlsRoleReadyForSctp(talk_base::SSLRole role) {
   SctpDataChannels::iterator it = sctp_data_channels_.begin();
   for (; it != sctp_data_channels_.end(); ++it) {
@@ -949,6 +977,20 @@ void MediaStreamSignaling::OnDtlsRoleReadyForSctp(talk_base::SSLRole role) {
         continue;
       }
       (*it)->SetSctpSid(sid);
+    }
+  }
+}
+
+void MediaStreamSignaling::OnDtlsRoleReadyForLedbat(talk_base::SSLRole role) {
+  LedbatDataChannels::iterator it = ledbat_data_channels_.begin();
+  for (; it != ledbat_data_channels_.end(); ++it) {
+    if (it->second->id() < 0) {
+      int sid;
+      if (!AllocateSctpSid(role, &sid)) {
+        LOG(LS_ERROR) << "Failed to allocate LEDBAT sid.";
+        continue;
+      }
+      it->second->SetSid(sid);
     }
   }
 }

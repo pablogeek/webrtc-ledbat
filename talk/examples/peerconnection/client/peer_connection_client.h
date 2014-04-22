@@ -48,6 +48,7 @@ struct PeerConnectionClientObserver {
   virtual void OnMessageFromPeer(int peer_id, const std::string& message) = 0;
   virtual void OnMessageSent(int err) = 0;
   virtual void OnServerConnectionFailure() = 0;
+  virtual bool quit() = 0;
 
  protected:
   virtual ~PeerConnectionClientObserver() {}
@@ -63,6 +64,7 @@ class PeerConnectionClient : public sigslot::has_slots<>,
     CONNECTED,
     SIGNING_OUT_WAITING,
     SIGNING_OUT,
+    KILLING_SERVER
   };
 
   PeerConnectionClient();
@@ -80,7 +82,7 @@ class PeerConnectionClient : public sigslot::has_slots<>,
   bool SendToPeer(int peer_id, const std::string& message);
   bool SendHangUp(int peer_id);
   bool IsSendingMessage();
-
+  void KillServer();
   bool SignOut();
 
   // implements the MessageHandler interface

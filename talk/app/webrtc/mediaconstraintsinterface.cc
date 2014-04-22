@@ -86,6 +86,10 @@ const char MediaConstraintsInterface::kUseRtpMux[] =
 // Below constraints should be used during PeerConnection construction.
 const char MediaConstraintsInterface::kEnableDtlsSrtp[] =
     "DtlsSrtpKeyAgreement";
+
+const char MediaConstraintsInterface::kEnableLedbatDataChannels[] =
+    "LedbatDataChannels";
+
 const char MediaConstraintsInterface::kEnableRtpDataChannels[] =
     "RtpDataChannels";
 // Google-specific constraint keys.

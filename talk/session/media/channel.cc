@@ -761,9 +761,17 @@ void BaseChannel::ChannelWritable_w() {
     }
   }
 
-  was_ever_writable_ = true;
-  writable_ = true;
-  ChangeState();
+  // TODO/FIXME: This cast might break non-data channels horribly!
+  if (((DataMediaChannel*)media_channel())->NeedsChannelSetup()) {
+    LOG(LS_INFO) << "Channel transport writable. Waiting for UTP connect " <<
+                    " before settings LEDBAT as writable";
+    ((DataMediaChannel*)media_channel())->SetSend(true);
+    ChangeState();
+  } else {
+    was_ever_writable_ = true;
+    writable_ = true;
+    ChangeState();
+  }
 }
 
 bool BaseChannel::SetDtlsSrtpCiphers(TransportChannel *tc, bool rtcp) {
@@ -2181,6 +2189,8 @@ bool DataChannel::WantsPacket(bool rtcp, talk_base::Buffer* packet) {
     return !IsRtpPacket(packet);
   } else if (data_channel_type_ == DCT_RTP) {
     return BaseChannel::WantsPacket(rtcp, packet);
+  } else if (data_channel_type_ == DCT_LEDBAT) {
+    return true;
   }
   return false;
 }
@@ -2212,7 +2222,14 @@ bool DataChannel::SetDataChannelTypeFromContent(
     std::string* error_desc) {
   bool is_sctp = ((content->protocol() == kMediaProtocolSctp) ||
                   (content->protocol() == kMediaProtocolDtlsSctp));
-  DataChannelType data_channel_type = is_sctp ? DCT_SCTP : DCT_RTP;
+  DataChannelType data_channel_type = DCT_SCTP;
+  if (!is_sctp) {
+    if (content->protocol() == kMediaProtocolLedbat) {
+      data_channel_type = DCT_LEDBAT;
+    } else {
+      data_channel_type = DCT_RTP;
+    }
+  }
   return SetDataChannelType(data_channel_type, error_desc);
 }
 
@@ -2235,7 +2252,7 @@ bool DataChannel::SetLocalContent_w(const MediaContentDescription* content,
     return false;
   }
 
-  if (data_channel_type_ == DCT_SCTP) {
+  if (data_channel_type_ == DCT_SCTP || data_channel_type_ == DCT_LEDBAT) {
     // SCTP data channels don't need the rest of the stuff.
     ret = UpdateLocalStreams_w(data->streams(), action, error_desc);
     if (ret) {
@@ -2285,8 +2302,8 @@ bool DataChannel::SetRemoteContent_w(const MediaContentDescription* content,
     return false;
   }
 
-  if (data_channel_type_ == DCT_SCTP) {
-    LOG(LS_INFO) << "Setting SCTP remote data description";
+  if (data_channel_type_ == DCT_SCTP || data_channel_type_ == DCT_LEDBAT) {
+    LOG(LS_INFO) << "Setting SCTP/LEDBAT remote data description";
     // SCTP data channels don't need the rest of the stuff.
     ret = UpdateRemoteStreams_w(content->streams(), action, error_desc);
     if (ret) {

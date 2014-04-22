@@ -42,14 +42,20 @@ class HybridDataEngine : public DataEngineInterface {
  public:
   // Takes ownership.
   HybridDataEngine(DataEngineInterface* first,
-                   DataEngineInterface* second)
+                   DataEngineInterface* second,
+                   DataEngineInterface* third)
       : first_(first),
-        second_(second) {
+        second_(second),
+        third_(third) {
     codecs_ = first_->data_codecs();
     codecs_.insert(
         codecs_.end(),
         second_->data_codecs().begin(),
         second_->data_codecs().end());
+    codecs_.insert(
+        codecs_.end(),
+        third_->data_codecs().begin(),
+        third_->data_codecs().end());
   }
 
   virtual DataMediaChannel* CreateChannel(DataChannelType data_channel_type) {
@@ -60,6 +66,9 @@ class HybridDataEngine : public DataEngineInterface {
     if (!channel && second_) {
       channel = second_->CreateChannel(data_channel_type);
     }
+    if (!channel && third_) {
+      channel = third_->CreateChannel(data_channel_type);
+    }
     return channel;
   }
 
@@ -68,6 +77,7 @@ class HybridDataEngine : public DataEngineInterface {
  private:
   talk_base::scoped_ptr<DataEngineInterface> first_;
   talk_base::scoped_ptr<DataEngineInterface> second_;
+  talk_base::scoped_ptr<DataEngineInterface> third_;
   std::vector<DataCodec> codecs_;
 };
 

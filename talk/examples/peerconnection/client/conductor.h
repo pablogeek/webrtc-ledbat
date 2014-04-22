@@ -39,8 +39,11 @@
 #include "talk/app/webrtc/mediastreaminterface.h"
 #include "talk/app/webrtc/peerconnectioninterface.h"
 #include "talk/base/scoped_ptr.h"
+#include "talk/app/webrtc/peerconnection.h"
 #include "talk/app/webrtc/datachannel.h"
 #include "talk/app/webrtc/datachannelinterface.h"
+#include "talk/app/webrtc/test/fakeconstraints.h"
+#include "talk/base/messagehandler.h"
 
 namespace webrtc {
 class VideoCaptureModule;
@@ -49,6 +52,8 @@ class VideoCaptureModule;
 namespace cricket {
 class VideoRenderer;
 }  // namespace cricket
+
+class ThreadMessageHandler;
 
 class Conductor
   : public webrtc::PeerConnectionObserver,
@@ -66,49 +71,63 @@ class Conductor
     STREAM_REMOVED,
   };
 
-  Conductor(PeerConnectionClient* client, MainWindow* main_wnd);
+  Conductor(PeerConnectionClient* client, talk_base::Thread *t);
 
   bool connection_active() const;
 
   virtual void Close();
+  virtual void StartLogin(const std::string& server, int port);
+  virtual void UIThreadCallback(int msg_id, void* data);
 
  protected:
   ~Conductor();
   bool InitializePeerConnection();
   void DeletePeerConnection();
   void EnsureStreamingUI();
-  void AddStreams();
+  void SendUIThreadCallback(int msg_id, void* data);
   cricket::VideoCapturer* OpenVideoCaptureDevice();
 
   //
   // PeerConnectionObserver implementation.
   //
   virtual void OnError();
-  virtual void OnStateChange(
-      webrtc::PeerConnectionObserver::StateType state_changed) {}
+  virtual void OnStateChange() {
+    if (data_channel_) {
+      LOG(LS_INFO) << "State change local: " << data_channel_->state();
+      if(data_channel_->state() == webrtc::DataChannelInterface::kOpen) {
+          if(!quit_) {
+            const webrtc::DataBuffer buffer("Hello!");
+            LOG(LS_INFO) << "Sending data: " << buffer.data.data();
+            if(!data_channel_->Send(buffer)) {
+              LOG(LS_ERROR) << "data_channel_->Send: FAILED!";
+            }
+
+            const webrtc::DataBuffer buffer2("Hello again!");
+            LOG(LS_INFO) << "Sending data: " << buffer2.data.data();
+            if(!data_channel_->Send(buffer2)) {
+              LOG(LS_ERROR) << "data_channel_->Send: FAILED!";
+            }
+          }
+      }
+    } else {
+      LOG(LS_INFO) << "State change remote: " << remote_data_channel_->state();
+    }
+  };
+
+  virtual void OnMessage(const webrtc::DataBuffer& buffer);
   virtual void OnAddStream(webrtc::MediaStreamInterface* stream);
   virtual void OnRemoveStream(webrtc::MediaStreamInterface* stream);
   virtual void OnRenegotiationNeeded() {}
   virtual void OnIceChange() {}
   virtual void OnIceCandidate(const webrtc::IceCandidateInterface* candidate);
-
+  virtual void OnDataChannel(webrtc::DataChannelInterface* data_channel);
   //
   // PeerConnectionClientObserver implementation.
   //
 
-  virtual void OnStateChange() {
-    if(datachannel_->state() == webrtc::DataChannelInterface::kOpen) {
-        if(!quit_) {
-          const webrtc::DataBuffer buffer("Hello!");
-          datachannel_->Send(buffer);
-        }
-    }
-  };
-  //  A data buffer was successfully received.
-  virtual void OnMessage(const webrtc::DataBuffer& buffer);
-
-
   virtual void OnSignedIn();
+
+  virtual void OnSignedOut();
 
   virtual void OnDisconnected();
 
@@ -122,23 +141,16 @@ class Conductor
 
   virtual void OnServerConnectionFailure();
 
-  //
-  // MainWndCallback implementation.
-  //
-
-  virtual void StartLogin(const std::string& server, int port);
-
   virtual void DisconnectFromServer();
 
   virtual void ConnectToPeer(int peer_id);
 
-  virtual void DisconnectFromCurrentPeer();
-
-  virtual void UIThreadCallback(int msg_id, void* data);
+  virtual void DisconnectFromCurrentPeer();  
 
   // CreateSessionDescriptionObserver implementation.
   virtual void OnSuccess(webrtc::SessionDescriptionInterface* desc);
   virtual void OnFailure(const std::string& error);
+  bool quit() { return quit_; }
 
  protected:
   // Send a message to the remote peer.
@@ -154,8 +166,24 @@ class Conductor
   std::map<std::string, talk_base::scoped_refptr<webrtc::MediaStreamInterface> >
       active_streams_;
   std::string server_;
-  bool quit_;
   talk_base::scoped_refptr<webrtc::DataChannelInterface> datachannel_;
+  ThreadMessageHandler* thread_message_handler_;
+  talk_base::Thread *t_;
+  bool quit_;
+  talk_base::scoped_refptr<webrtc::DataChannelInterface> data_channel_;
+  talk_base::scoped_refptr<webrtc::DataChannelInterface> remote_data_channel_;
+  webrtc::FakeConstraints constraints;
+  webrtc::FakeConstraints global_constraints;
+};
+
+class ThreadMessageHandler : public talk_base::MessageHandler {
+ public:
+  ThreadMessageHandler(Conductor* c) : c_(c) {
+  }
+  virtual void OnMessage(talk_base::Message* msg) {
+    c_->UIThreadCallback(msg->message_id, (void *)msg->pdata);
+  };
+  Conductor *c_;
 };
 
 #endif  // PEERCONNECTION_SAMPLES_CLIENT_CONDUCTOR_H_

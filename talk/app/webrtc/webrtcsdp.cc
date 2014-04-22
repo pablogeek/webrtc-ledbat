@@ -1166,6 +1166,7 @@ void BuildMediaDescription(const ContentInfo* content_info,
   ASSERT(media_desc != NULL);
 
   bool is_sctp = (media_desc->protocol() == cricket::kMediaProtocolDtlsSctp);
+  bool is_ledbat = (media_desc->protocol() == cricket::kMediaProtocolLedbat);
 
   // RFC 4566
   // m=<media> <port> <proto> <fmt>
@@ -1288,7 +1289,7 @@ void BuildMediaDescription(const ContentInfo* content_info,
   os << kSdpDelimiterColon << content_info->name;
   AddLine(os.str(), message);
 
-  if (is_sctp) {
+  if (is_sctp || is_ledbat) {
     BuildSctpContentAttributes(message);
   } else {
     BuildRtpContentAttributes(media_desc, media_type, message);
@@ -2111,6 +2112,7 @@ bool ParseMediaDescription(const std::string& message,
 
     std::string protocol = fields[2];
     bool is_sctp = (protocol == cricket::kMediaProtocolDtlsSctp);
+    bool is_ledbat = (protocol == cricket::kMediaProtocolLedbat);
 
     // <fmt>
     std::vector<int> codec_preference;
@@ -2184,7 +2186,7 @@ bool ParseMediaDescription(const std::string& message,
       return false;
     }
 
-    if (!is_sctp) {
+    if (!is_sctp && !is_ledbat) {
       // Make sure to set the media direction correctly. If the direction is not
       // MD_RECVONLY or Inactive and no streams are parsed,
       // a default MediaStream will be created to prepare for receiving media.
@@ -2206,9 +2208,16 @@ bool ParseMediaDescription(const std::string& message,
       }
     }
     content->set_protocol(protocol);
+    const char* content_type;
+    if (protocol == cricket::kMediaProtocolDtlsSctp) {
+      content_type = cricket::NS_JINGLE_DRAFT_SCTP;
+    } else if (protocol == cricket::kMediaProtocolLedbat) {
+      content_type = cricket::NS_JINGLE_DRAFT_LEDBAT;
+    } else {
+      content_type = cricket::NS_JINGLE_RTP;
+    }
     desc->AddContent(content_name,
-                     is_sctp ? cricket::NS_JINGLE_DRAFT_SCTP :
-                               cricket::NS_JINGLE_RTP,
+                     content_type,
                      rejected,
                      content.release());
     // Create TransportInfo with the media level "ice-pwd" and "ice-ufrag".

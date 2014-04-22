@@ -109,6 +109,20 @@ bool DataChannel::Init(const InternalDataChannelInit& config) {
     if (provider_->ReadyToSendData()) {
       talk_base::Thread::Current()->Post(this, MSG_CHANNELREADY, NULL);
     }
+  
+  } else if (data_channel_type_ == cricket::DCT_LEDBAT) {
+    if (config.id < -1) {
+      LOG(LS_ERROR) << "Failed to initialize the LEDBAT data channel due to "
+                    << "invalid DataChannelInit.";
+      return false;
+    }
+
+    config_ = config;
+
+    OnTransportChannelCreatedLedbat();
+    if (provider_->ReadyToSendData()) {
+      talk_base::Thread::Current()->Post(this, MSG_CHANNELREADY, NULL);
+    }
   }
 
   return true;
@@ -184,7 +198,7 @@ void DataChannel::QueueControl(const talk_base::Buffer* buffer) {
 }
 
 bool DataChannel::SendOpenMessage(const talk_base::Buffer* raw_buffer) {
-  ASSERT(data_channel_type_ == cricket::DCT_SCTP &&
+  ASSERT((data_channel_type_ == cricket::DCT_SCTP || data_channel_type_ == cricket::DCT_LEDBAT) &&
          was_ever_writable_ &&
          config_.id >= 0 &&
          !config_.negotiated);
@@ -215,7 +229,7 @@ bool DataChannel::SendOpenMessage(const talk_base::Buffer* raw_buffer) {
 }
 
 bool DataChannel::SendOpenAckMessage(const talk_base::Buffer* raw_buffer) {
-  ASSERT(data_channel_type_ == cricket::DCT_SCTP &&
+  ASSERT((data_channel_type_ == cricket::DCT_SCTP || data_channel_type_ == cricket::DCT_LEDBAT) &&
          was_ever_writable_ &&
          config_.id >= 0);
 
@@ -286,8 +300,10 @@ void DataChannel::OnDataReceived(cricket::DataChannel* channel,
                                  const talk_base::Buffer& payload) {
   uint32 expected_ssrc =
       (data_channel_type_ == cricket::DCT_RTP) ? receive_ssrc_ : config_.id;
-  if (params.ssrc != expected_ssrc) {
-    return;
+  if(data_channel_type_ != cricket::DCT_LEDBAT) {
+    if (params.ssrc != expected_ssrc) {
+      return;
+    }
   }
 
   if (params.type == cricket::DMT_CONTROL) {
@@ -344,7 +360,7 @@ void DataChannel::OnChannelReady(bool writable) {
   if (!was_ever_writable_) {
     was_ever_writable_ = true;
 
-    if (data_channel_type_ == cricket::DCT_SCTP) {
+    if (data_channel_type_ == cricket::DCT_SCTP || data_channel_type_ == cricket::DCT_LEDBAT) {
       if (config_.open_handshake_role == InternalDataChannelInit::kOpener) {
         talk_base::Buffer* payload = new talk_base::Buffer;
         WriteDataChannelOpenMessage(label_, config_, payload);
@@ -536,6 +552,16 @@ void DataChannel::SetSctpSid(int sid) {
   provider_->AddSctpDataStream(sid);
 }
 
+void DataChannel::SetSid(int sid) {
+  config_.id = sid;
+}
+
+void DataChannel::OnTransportChannelCreatedLedbat() {
+  if (!connected_to_provider_) {
+    connected_to_provider_ = provider_->ConnectDataChannel(this);
+  }
+}
+
 void DataChannel::OnTransportChannelCreated() {
   ASSERT(data_channel_type_ == cricket::DCT_SCTP);
   if (!connected_to_provider_) {
@@ -546,6 +572,10 @@ void DataChannel::OnTransportChannelCreated() {
   if (config_.id >= 0) {
     provider_->AddSctpDataStream(config_.id);
   }
+}
+
+void DataChannel::OnLedbatChannelReady() {
+  UpdateState();
 }
 
 }  // namespace webrtc

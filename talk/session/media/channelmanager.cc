@@ -47,6 +47,7 @@
 #ifdef HAVE_SCTP
 #include "talk/media/sctp/sctpdataengine.h"
 #endif
+#include "talk/media/ledbat/ledbatdataengine.h"
 #include "talk/session/media/soundclip.h"
 #include "talk/session/media/srtpfilter.h"
 
@@ -70,7 +71,7 @@ struct CaptureStateParams : public talk_base::MessageData {
 
 static DataEngineInterface* ConstructDataEngine() {
 #ifdef HAVE_SCTP
-  return new HybridDataEngine(new RtpDataEngine(), new SctpDataEngine());
+  return new HybridDataEngine(new RtpDataEngine(), new SctpDataEngine(), new LedbatDataEngine());
 #else
   return new RtpDataEngine();
 #endif

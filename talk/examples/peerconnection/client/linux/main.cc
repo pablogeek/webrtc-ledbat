@@ -25,12 +25,11 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <gtk/gtk.h>
-
 #include "talk/examples/peerconnection/client/conductor.h"
 #include "talk/examples/peerconnection/client/flagdefs.h"
 #include "talk/examples/peerconnection/client/linux/main_wnd.h"
 #include "talk/examples/peerconnection/client/peer_connection_client.h"
+#include "talk/base/basictypes.h"
 
 #include "talk/base/ssladapter.h"
 #include "talk/base/thread.h"
@@ -46,18 +45,6 @@ class CustomSocketServer : public talk_base::PhysicalSocketServer {
 
   // Override so that we can also pump the GTK message loop.
   virtual bool Wait(int cms, bool process_io) {
-    // Pump GTK events.
-    // TODO: We really should move either the socket server or UI to a
-    // different thread.  Alternatively we could look at merging the two loops
-    // by implementing a dispatcher for the socket server and/or use
-    // g_main_context_set_poll_func.
-      while (gtk_events_pending())
-        gtk_main_iteration();
-
-    if (!wnd_->IsWindow() && !conductor_->connection_active() &&
-        client_ != NULL && !client_->is_connected()) {
-      thread_->Quit();
-    }
     return talk_base::PhysicalSocketServer::Wait(0/*cms == -1 ? 1 : cms*/,
                                                  process_io);
   }
@@ -70,10 +57,6 @@ class CustomSocketServer : public talk_base::PhysicalSocketServer {
 };
 
 int main(int argc, char* argv[]) {
-  gtk_init(&argc, &argv);
-  g_type_init();
-  g_thread_init(NULL);
-
   FlagList::SetFlagsFromCommandLine(&argc, argv, true);
   if (FLAG_help) {
     FlagList::Print(NULL, false);
@@ -87,32 +70,25 @@ int main(int argc, char* argv[]) {
     return -1;
   }
 
-  GtkMainWnd wnd(FLAG_server, FLAG_port, FLAG_autoconnect, FLAG_autocall);
-  wnd.Create();
-
   talk_base::AutoThread auto_thread;
   talk_base::Thread* thread = talk_base::Thread::Current();
-  CustomSocketServer socket_server(thread, &wnd);
+  CustomSocketServer socket_server(thread, NULL);
   thread->set_socketserver(&socket_server);
 
   talk_base::InitializeSSL();
   // Must be constructed after we set the socketserver.
   PeerConnectionClient client;
   talk_base::scoped_refptr<Conductor> conductor(
-      new talk_base::RefCountedObject<Conductor>(&client, &wnd));
+      new talk_base::RefCountedObject<Conductor>(&client, thread));
   socket_server.set_client(&client);
   socket_server.set_conductor(conductor);
 
-  thread->Run();
+  conductor.get()->StartLogin("localhost", 8888);
 
-  // gtk_main();
-  wnd.Destroy();
-
+  thread->ProcessMessages(talk_base::kForever);
+  fprintf(stderr, "%s\n", "Stopping!");
+  conductor.release();
   thread->set_socketserver(NULL);
-  // TODO: Run the Gtk main loop to tear down the connection.
-  //while (gtk_events_pending()) {
-  //  gtk_main_iteration();
-  //}
   talk_base::CleanupSSL();
   return 0;
 }

@@ -135,6 +135,8 @@ extern const buzz::StaticQName QN_SUBTYPE;
 extern const buzz::StaticQName QN_JINGLE_RTP_HDREXT;
 extern const buzz::StaticQName QN_URI;
 
+extern const char NS_JINGLE_DRAFT_LEDBAT[];
+
 extern const char NS_JINGLE_DRAFT_SCTP[];
 extern const buzz::StaticQName QN_JINGLE_DRAFT_SCTP_CONTENT;
 extern const buzz::StaticQName QN_JINGLE_DRAFT_SCTP_STREAM;

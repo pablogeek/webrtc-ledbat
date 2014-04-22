@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
   typedef std::vector<DataSocket*> SocketArray;
   SocketArray sockets;
   bool quit = false;
-  while (!quit) {
+  while (!quit || clients.members().size()) {
     fd_set socket_set;
     FD_ZERO(&socket_set);
     if (listener.valid())
@@ -135,6 +135,13 @@ int main(int argc, char** argv) {
                 member->ForwardRequestToPeer(s, target);
               } else if (s->PathEquals("/sign_out")) {
                 s->Send("200 OK", true, "text/plain", "", "");
+              } else if (s->PathEquals("/quit")) {
+                s->Send("200 OK", true, "text/plain", "", "");
+                printf("Quitting...!\n");
+                FD_CLR(listener.socket(), &socket_set);
+                listener.Close();
+                clients.CloseAll();
+                quit = true;
               } else {
                 printf("Couldn't find target for request: %s\n",
                     s->request_path().c_str());

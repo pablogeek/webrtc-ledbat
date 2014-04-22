@@ -380,7 +380,8 @@ typedef CompositeMediaEngine<NullVoiceEngine, NullVideoEngine> NullMediaEngine;
 enum DataChannelType {
   DCT_NONE = 0,
   DCT_RTP = 1,
-  DCT_SCTP = 2
+  DCT_SCTP = 2,
+  DCT_LEDBAT = 3
 };
 
 class DataEngineInterface {

@@ -196,7 +196,15 @@ class MediaStreamSignaling {
   bool AddDataChannel(DataChannel* data_channel);
   // After we receive an OPEN message, create a data channel and add it.
   bool AddDataChannelFromOpenMessage(const cricket::ReceiveDataParams& params,
-                                     const talk_base::Buffer& payload);
+                                     const talk_base::Buffer& payload,
+                                     cricket::DataChannelType data_channel_type);
+
+  bool AddDataChannelFromOpenMessage(const cricket::ReceiveDataParams& params,
+                                     const talk_base::Buffer& payload){
+    return AddDataChannelFromOpenMessage(params, payload, cricket::DCT_SCTP);
+  }
+
+  bool AddDataChannelFromOpenMessageLedbat();
 
   // Returns a MediaSessionOptions struct with options decided by |constraints|,
   // the local MediaStreams and DataChannels.
@@ -247,7 +255,9 @@ class MediaStreamSignaling {
     return remote_streams_.get();
   }
   void OnDataTransportCreatedForSctp();
+  void OnDataTransportCreatedForLedbat();
   void OnDtlsRoleReadyForSctp(talk_base::SSLRole role);
+  void OnDtlsRoleReadyForLedbat(talk_base::SSLRole role);
 
  private:
   struct RemotePeerInfo {
@@ -388,7 +398,10 @@ class MediaStreamSignaling {
   typedef std::map<std::string, talk_base::scoped_refptr<DataChannel> >
       RtpDataChannels;
   typedef std::vector<talk_base::scoped_refptr<DataChannel> > SctpDataChannels;
+  typedef std::map<std::string, talk_base::scoped_refptr<DataChannel> >
+      LedbatDataChannels;
   RtpDataChannels rtp_data_channels_;
+  LedbatDataChannels ledbat_data_channels_;
   SctpDataChannels sctp_data_channels_;
 };
 

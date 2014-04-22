@@ -122,6 +122,10 @@ class FakeConstraints : public webrtc::MediaConstraintsInterface {
     SetMandatory(MediaConstraintsInterface::kEnableDtlsSrtp, true);
   }
 
+  void SetAllowLedbatDataChannels() {
+    SetMandatory(MediaConstraintsInterface::kEnableLedbatDataChannels, true);
+  }
+
  private:
   Constraints mandatory_;
   Constraints optional_;

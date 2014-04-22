@@ -69,6 +69,8 @@ const char kMediaProtocolRtpPrefix[] = "RTP/";
 const char kMediaProtocolSctp[] = "SCTP";
 const char kMediaProtocolDtlsSctp[] = "DTLS/SCTP";
 
+const char kMediaProtocolLedbat[] = "LEDBAT";
+
 static bool IsMediaContentOfType(const ContentInfo* content,
                                  MediaType media_type) {
   if (!IsMediaContent(content)) {
@@ -977,7 +979,8 @@ static bool IsMediaProtocolSupported(MediaType type,
   // Data channels can have a protocol of SCTP or SCTP/DTLS.
   if (type == MEDIA_TYPE_DATA &&
       (protocol == kMediaProtocolSctp ||
-       protocol == kMediaProtocolDtlsSctp)) {
+       protocol == kMediaProtocolDtlsSctp || 
+       protocol == kMediaProtocolLedbat)) {
     return true;
   }
   // Since not all applications serialize and deserialize the media protocol,
@@ -988,10 +991,11 @@ static bool IsMediaProtocolSupported(MediaType type,
 
 static void SetMediaProtocol(bool secure_transport,
                              MediaContentDescription* desc) {
-  if (!desc->cryptos().empty() || secure_transport)
+  if (!desc->cryptos().empty() || secure_transport) {
     desc->set_protocol(kMediaProtocolSavpf);
-  else
+  } else {
     desc->set_protocol(kMediaProtocolAvpf);
+  }
 }
 
 // Gets the TransportInfo of the given |content_name| from the
@@ -1203,6 +1207,7 @@ SessionDescription* MediaSessionDescriptionFactory::CreateOffer(
   if (options.has_data()) {
     scoped_ptr<DataContentDescription> data(new DataContentDescription());
     bool is_sctp = (options.data_channel_type == DCT_SCTP);
+    bool is_ledbat = (options.data_channel_type == DCT_LEDBAT);
 
     cricket::SecurePolicy sdes_policy =
         IsDtlsActive(CN_DATA, current_description) ?
@@ -1218,6 +1223,9 @@ SessionDescription* MediaSessionDescriptionFactory::CreateOffer(
       // generate SSRCs rather than SIDs.
       data->set_protocol(
           secure_transport ? kMediaProtocolDtlsSctp : kMediaProtocolSctp);
+    } else if (is_ledbat) {
+      sdes_policy = cricket::SEC_DISABLED;
+      data->set_protocol(kMediaProtocolLedbat);
     } else {
       GetSupportedDataCryptoSuites(&crypto_suites);
     }
@@ -1237,6 +1245,8 @@ SessionDescription* MediaSessionDescriptionFactory::CreateOffer(
 
     if (is_sctp) {
       offer->AddContent(CN_DATA, NS_JINGLE_DRAFT_SCTP, data.release());
+    } else if (is_ledbat) {
+      offer->AddContent(CN_DATA, NS_JINGLE_DRAFT_LEDBAT, data.release());
     } else {
       data->set_bandwidth(options.data_bandwidth);
       SetMediaProtocol(secure_transport, data.get());
@@ -1598,7 +1608,8 @@ bool MediaSessionDescriptionFactory::AddTransportAnswer(
 bool IsMediaContent(const ContentInfo* content) {
   return (content &&
           (content->type == NS_JINGLE_RTP ||
-           content->type == NS_JINGLE_DRAFT_SCTP));
+           content->type == NS_JINGLE_DRAFT_SCTP ||
+           content->type == NS_JINGLE_DRAFT_LEDBAT));
 }
 
 bool IsAudioContent(const ContentInfo* content) {

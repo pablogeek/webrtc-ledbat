@@ -293,6 +293,8 @@ bool Call::AddSession(Session* session, const SessionDescription* offer) {
       if ((data->protocol() == kMediaProtocolSctp) ||
           (data->protocol() == kMediaProtocolDtlsSctp)) {
         data_channel_type = DCT_SCTP;
+      } else if (data->protocol() == kMediaProtocolLedbat) {
+        data_channel_type = DCT_LEDBAT;
       }
 
       bool rtcp = false;
