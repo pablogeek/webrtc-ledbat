@@ -567,7 +567,7 @@ bool SctpDataMediaChannel::SendData(
   if (send_res < 0) {
     if (errno == EWOULDBLOCK) {
       *result = SDR_BLOCK;
-      LOG(LS_INFO) << debug_name_ << "->SendData(...): EWOULDBLOCK returned";
+      //LOG(LS_INFO) << debug_name_ << "->SendData(...): EWOULDBLOCK returned";
     } else {
       LOG_ERRNO(LS_ERROR) << "ERROR:" << debug_name_
                           << "->SendData(...): "

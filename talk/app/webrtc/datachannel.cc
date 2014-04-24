@@ -474,8 +474,8 @@ void DataChannel::DeliverQueuedSendData() {
     DataBuffer* buffer = queued_send_data_.front();
     cricket::SendDataResult send_result;
     if (!InternalSendWithoutQueueing(*buffer, &send_result)) {
-      LOG(LS_WARNING) << "DeliverQueuedSendData aborted due to send_result "
-                      << send_result;
+      //LOG(LS_WARNING) << "DeliverQueuedSendData aborted due to send_result "
+      //                << send_result;
       break;
     }
     queued_send_data_.pop_front();
@@ -539,7 +539,7 @@ bool DataChannel::InternalSendWithoutQueueing(
 
 bool DataChannel::QueueSendData(const DataBuffer& buffer) {
   if (queued_send_data_.size() > kMaxQueuedSendDataPackets) {
-    LOG(LS_ERROR) << "Can't buffer any more data in the data channel.";
+    //LOG(LS_ERROR) << "Can't buffer any more data in the data channel.";
     return false;
   }
   queued_send_data_.push_back(new DataBuffer(buffer));
