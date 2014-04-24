@@ -40,6 +40,28 @@
 #include "talk/base/messagehandler.h"
 #include "talk/base/messagequeue.h"
 
+/*
+#include <ctype.h>
+#include <stdio.h>
+
+void hexdump(void *ptr, int buflen) {
+  unsigned char *buf = (unsigned char*)ptr;
+  int i, j;
+  for (i=0; i<buflen; i+=16) {
+    printf("%06x: ", i);
+    for (j=0; j<16; j++) 
+      if (i+j < buflen)
+        printf("%02x ", buf[i+j]);
+      else
+        printf("   ");
+    printf(" ");
+    for (j=0; j<16; j++) 
+      if (i+j < buflen)
+        printf("%c", isprint(buf[i+j]) ? buf[i+j] : '.');
+    printf("\n");
+  }
+}*/
+
 // Names used for a IceCandidate JSON object.
 const char kCandidateSdpMidName[] = "sdpMid";
 const char kCandidateSdpMlineIndexName[] = "sdpMLineIndex";
@@ -69,10 +91,12 @@ class DummySetSessionDescriptionObserver
 };
 
 Conductor::Conductor(PeerConnectionClient* client, talk_base::Thread *t, 
-  ChannelType channel_type, bool connect, char* sendfile)
+  ChannelType channel_type, bool connect, char* sendfile, char* receivefile)
   : peer_id_(-1),
     client_(client), t_(t), channel_type_(channel_type), connect_(connect), 
-    sendfile_(sendfile), BUFLEN(64), instream_(NULL), ready_to_send_(false) {
+    sendfile_(sendfile), receivefile_(receivefile), BUFLEN(1024 * 64), instream_(NULL), 
+    outstream_(NULL), ready_to_send_(false), receive_length_(-1),
+    outstanding_buffer_(-1) {
   inbuffer_ = new char [BUFLEN];
   client_->RegisterObserver(this);
   thread_message_handler_ = new ThreadMessageHandler(this);
@@ -91,11 +115,32 @@ void Conductor::Close() {
   DeletePeerConnection();
 }
 
+bool Conductor::SendData(char* data, size_t len, 
+    talk_base::scoped_refptr<webrtc::DataChannelInterface> data_channel) {
+  const webrtc::DataBuffer buffer(talk_base::Buffer(data, len), true);
+  return data_channel->Send(buffer);
+} 
+
 void Conductor::ReadFile() {
   ASSERT(t_ == talk_base::Thread::Current());
+  if(outstanding_buffer_ > 0) {
+    if(SendData(inbuffer_, outstanding_buffer_)) {
+      outstanding_buffer_ = -1;
+    } else {
+      t_->PostDelayed(250, thread_message_handler_, Conductor::READ_FILE, NULL);
+      return;
+    }
+  }
+
   if(sendfile_ != NULL && instream_ == NULL && ready_to_send_) {
     LOG(LS_INFO) << "Reading from file: " << sendfile_;
     instream_ = new std::ifstream(sendfile_, std::ifstream::binary);
+    instream_->seekg(0, std::ifstream::end);
+    int filesize = instream_->tellg();
+    instream_->seekg(0);
+    int netw_filesize = htonl(filesize);
+    LOG(LS_INFO) << "Sending filesize: " << filesize;
+    SendData((char*)&netw_filesize, sizeof(netw_filesize));
   }
 
   if (instream_ && ready_to_send_) {
@@ -117,18 +162,25 @@ void Conductor::ReadFile() {
       delete instream_;
       sendfile_ = NULL;
       instream_ = NULL;
+      LOG(LS_INFO) << "All bytes of input file read!";
     } else if (instream_->bad()) {
       LOG(LS_ERROR) << "Bad instream!";
+      perror("instream");
       instream_->close();
+
       delete instream_;
       instream_ = NULL;
       sendfile_ = NULL;
     }
 
     if(send_bytes > 0) {
-      SendData(inbuffer_, send_bytes);
+      if(!SendData(inbuffer_, send_bytes)) {
+        outstanding_buffer_ = send_bytes;
+      }
     }
   }
+
+  t_->Post(thread_message_handler_, Conductor::READ_FILE, NULL);
 }
 
 bool Conductor::InitializePeerConnection() {
@@ -214,7 +266,39 @@ void Conductor::OnAddStream(webrtc::MediaStreamInterface* stream) {
 }
 
 void Conductor::OnMessage(const webrtc::DataBuffer& buffer) {
-    LOG(INFO) << "\n\n### Message received ###:\n " << std::string(buffer.data.data(), buffer.size()) << "\n";
+    webrtc::DataBuffer *b;
+    if (receive_length_ == -1 && buffer.size() >= sizeof(int)) {
+      int netw_filesize;
+      memcpy(&netw_filesize, (char *)buffer.data.data(), sizeof(int));
+      int filesize = ntohl(netw_filesize);
+      LOG(LS_INFO) << "Received filesize: " << filesize;
+      receive_length_ = filesize;
+      b = new webrtc::DataBuffer(talk_base::Buffer(buffer.data.data() + sizeof(int), buffer.size() - sizeof(int)), buffer.binary);
+    } else {
+      b = (webrtc::DataBuffer *)&buffer;
+    }
+    if (receivefile_) {
+      if(outstream_ == NULL) {
+        LOG(LS_INFO) << "Receiving data! Writing data to: " << receivefile_;
+        outstream_ = new std::ofstream(receivefile_, std::ofstream::binary);
+      }
+      outstream_->write(b->data.data(), b->size());
+    } else {
+      LOG(INFO) << "\n\n### Message received ###:\n " << std::string(b->data.data(), b->size()) << "\n";
+    }
+
+    if (receive_length_ > 0) {
+      receive_length_ -= b->size();
+      if (receive_length_ == 0) {
+        LOG(LS_INFO) << "All data received!";
+        if (outstream_) {
+          outstream_->flush();
+        }
+        SendUIThreadCallback(CLOSE, NULL);
+      } else {
+        LOG(LS_INFO) << "Data left to receive: " << receive_length_;
+      }
+    }
 };
 
 void Conductor::OnRemoveStream(webrtc::MediaStreamInterface* stream) {
@@ -355,6 +439,32 @@ void Conductor::OnMessageFromPeer(int peer_id, const std::string& message) {
   }
 }
 
+void Conductor::OnStateChange() {
+    if (data_channel_) {
+      LOG(LS_INFO) << "State change local: " << data_channel_->state();
+      if(data_channel_->state() == webrtc::DataChannelInterface::kOpen) {
+        if (sendfile_ == NULL) {
+          int zero = 0;
+          LOG(LS_INFO) << "Sending filesize: " << zero;
+          SendData((char*)&zero, sizeof(zero));
+        }
+
+        ready_to_send_ = true;
+        t_->Post(thread_message_handler_, Conductor::READ_FILE, NULL);
+        
+        
+      } else if(data_channel_->state() == webrtc::DataChannelInterface::kClosed) {
+        if (!quit_) {
+          quit_ = true;
+          LOG(LS_INFO) << "Data channel closed. Disconnecting from peer.";
+          Close();
+        }
+      }
+    } else {
+      LOG(LS_INFO) << "State change remote: " << remote_data_channel_->state();
+    }
+  };
+
 void Conductor::OnMessageSent(int err) {
   // Process the next pending message if any.
   SendUIThreadCallback(SEND_MESSAGE_TO_PEER, NULL);
@@ -432,14 +542,25 @@ void Conductor::UIThreadCallback(int msg_id, void* data) {
   switch (msg_id) {
     case PEER_CONNECTION_CLOSED:
       LOG(INFO) << "PEER_CONNECTION_CLOSED";
+      if(outstream_) {
+        outstream_->flush();
+        outstream_->close();
+        delete outstream_;
+        receivefile_ = NULL;
+      }
       DeletePeerConnection();
 
       ASSERT(active_streams_.empty());
       break;
 
-    case SEND_DATA: {
-      const webrtc::DataBuffer* buffer = (webrtc::DataBuffer*)data;
-      data_channel_->Send(*buffer);
+    case CLOSE: {
+      if(data_channel_) {
+        if (data_channel_->state() == webrtc::DataChannelInterface::kOpen) {
+          data_channel_->Close();
+        }
+      } else {
+        Close();
+      }
       break;
     }
 

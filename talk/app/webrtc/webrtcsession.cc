@@ -1560,6 +1560,17 @@ void WebRtcSession::OnDataChannelMessageReceived(
       mediastream_signaling_->AddDataChannelFromOpenMessage(params, payload, data_channel_type_);
     }
   } else if (data_channel_type_ == cricket::DCT_LEDBAT) {
+    
+    // TODO: Fix this ugly mess of a hack
+    talk_base::ByteBuffer buffer(payload.data(), payload.length());
+    uint8 message_type;
+    if (!buffer.ReadUInt8(&message_type)) {
+      return;
+    }
+    uint8 DATA_CHANNEL_OPEN_MESSAGE_TYPE = 0x03;
+    if (message_type != DATA_CHANNEL_OPEN_MESSAGE_TYPE) {
+      return;
+    }
     mediastream_signaling_->AddDataChannelFromOpenMessage(params, payload, data_channel_type_);
   }
   // otherwise ignore the message.

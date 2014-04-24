@@ -53,5 +53,6 @@ DEFINE_bool(connect, false, "Create a data channel and connect to the first "
   "to true on one of the two clients.");
 DEFINE_string(channeltype, "ledbat", "The channel type: rtp|sctp|ledbat.");
 DEFINE_string(sendfile, NULL, "The path to a file to be sent.");
+DEFINE_string(receivefile, NULL, "The path to save a received file.");
 
 #endif  // TALK_EXAMPLES_PEERCONNECTION_CLIENT_FLAGDEFS_H_

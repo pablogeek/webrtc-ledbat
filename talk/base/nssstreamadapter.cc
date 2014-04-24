@@ -735,9 +735,9 @@ void NSSStreamAdapter::OnEvent(StreamInterface* stream, int events,
     }
   }
   if ((events & (SE_READ|SE_WRITE))) {
-    LOG(LS_INFO) << "NSSStreamAdapter::OnEvent"
+    /*LOG(LS_INFO) << "NSSStreamAdapter::OnEvent"
                  << ((events & SE_READ) ? " SE_READ" : "")
-                 << ((events & SE_WRITE) ? " SE_WRITE" : "");
+                 << ((events & SE_WRITE) ? " SE_WRITE" : "");*/
     if (state_ == SSL_NONE) {
       events_to_signal |= events & (SE_READ|SE_WRITE);
     } else if (state_ == SSL_CONNECTING) {
@@ -751,7 +751,7 @@ void NSSStreamAdapter::OnEvent(StreamInterface* stream, int events,
         events_to_signal |= SE_WRITE;
       }
       if (events & SE_READ) {
-        LOG(LS_INFO) << " -- onStreamReadable";
+        //LOG(LS_INFO) << " -- onStreamReadable";
         events_to_signal |= SE_READ;
       }
     }

@@ -69,7 +69,7 @@ class Conductor
     PEER_CONNECTION_ERROR,
     NEW_STREAM_ADDED,
     STREAM_REMOVED,
-    SEND_DATA,
+    CLOSE,
     READ_FILE,
   };
 
@@ -80,7 +80,7 @@ class Conductor
   };
 
   Conductor(PeerConnectionClient* client, talk_base::Thread *t, 
-    ChannelType channel_type, bool connect, char* sendfile);
+    ChannelType channel_type, bool connect, char* sendfile, char* receivefile);
 
   bool connection_active() const;
 
@@ -90,16 +90,24 @@ class Conductor
 
   void ReadFile();
 
-  void SendData(char* data, size_t len) {
-    webrtc::DataBuffer buffer(talk_base::Buffer(data, len), true);;
-    LOG(LS_INFO) << "Sending data: \"" << data << "\"";
-    if(!data_channel_->Send(buffer)) {
-      LOG(LS_ERROR) << "data_channel_->Send: FAILED!";
-    }
-  } 
 
-  void SendData(std::string message) {
-    SendData((char *)message.c_str(), message.length());
+  bool SendData(char* data, size_t len) {
+    return SendData(data, len, data_channel_);
+  }
+  bool SendData(char* data, size_t len, 
+    talk_base::scoped_refptr<webrtc::DataChannelInterface> data_channel);
+
+  void OnReadyToSend(bool writable) {
+    LOG(LS_INFO) << "OnReadyToSend: " << writable;
+  }
+
+  bool SendData(std::string message) {
+    return SendData(message, data_channel_);
+  }
+
+  bool SendData(std::string message, 
+    talk_base::scoped_refptr<webrtc::DataChannelInterface> data_channel) {
+    return SendData((char *)message.c_str(), message.length(), data_channel);
   } 
 
   void SendUIThreadCallback(int msg_id, void* data);
@@ -116,20 +124,7 @@ class Conductor
   // PeerConnectionObserver implementation.
   //
   virtual void OnError();
-  virtual void OnStateChange() {
-    if (data_channel_) {
-      LOG(LS_INFO) << "State change local: " << data_channel_->state();
-      if(data_channel_->state() == webrtc::DataChannelInterface::kOpen) {
-        ready_to_send_ = true;
-        if(!quit_) {
-          SendData("Hello!");
-          SendData("Hello again!");
-        }
-      }
-    } else {
-      LOG(LS_INFO) << "State change remote: " << remote_data_channel_->state();
-    }
-  };
+  virtual void OnStateChange();
 
   virtual void OnMessage(const webrtc::DataBuffer& buffer);
   virtual void OnAddStream(webrtc::MediaStreamInterface* stream);
@@ -194,11 +189,15 @@ class Conductor
   ChannelType channel_type_;
   bool connect_;
   char* sendfile_;
+  char* receivefile_;
   bool ready_to_send_;
 
   std::ifstream* instream_;
+  std::ofstream* outstream_;
   const size_t BUFLEN;
   char* inbuffer_;
+  int receive_length_;
+  int outstanding_buffer_;
 };
 
 class ThreadMessageHandler : public talk_base::MessageHandler {

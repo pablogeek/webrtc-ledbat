@@ -327,7 +327,7 @@ void setup(void)
 	debug("UTP context %p\n", ctx);
 
 	utp_set_callback(ctx, UTP_LOG,				&callback_log);
-	utp_set_callback(ctx, UTP_SENDTO,			&callback_sendto);
+	utp_setcallback(ctx, UTP_SENDTO,			&callback_sendto);
 	utp_set_callback(ctx, UTP_ON_ERROR,			&callback_on_error);
 	utp_set_callback(ctx, UTP_ON_STATE_CHANGE,	&callback_on_state_change);
 	utp_set_callback(ctx, UTP_ON_READ,			&callback_on_read);

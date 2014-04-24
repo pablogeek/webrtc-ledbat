@@ -43,7 +43,7 @@ class CustomSocketServer : public talk_base::PhysicalSocketServer {
 
   // Override so that we can also pump the GTK message loop.
   virtual bool Wait(int cms, bool process_io) {    
-    conductor_->SendUIThreadCallback(Conductor::READ_FILE, NULL);
+    /*conductor_->SendUIThreadCallback(Conductor::READ_FILE, NULL);*/
     return talk_base::PhysicalSocketServer::Wait(0/*cms == -1 ? 1 : cms*/,
                                                  process_io);
   }
@@ -92,7 +92,8 @@ int main(int argc, char* argv[]) {
   PeerConnectionClient client;
   talk_base::scoped_refptr<Conductor> conductor(
       new talk_base::RefCountedObject<Conductor>(&client, thread, channel_type,
-        FLAG_connect, (char *)FLAG_sendfile));
+        FLAG_connect, (char *)FLAG_sendfile, (char *)FLAG_receivefile));
+  //Conductor(PeerConnectionClient* client, talk_base::Thread *t, ChannelType channel_type, bool connect, char* sendfile, char* receivefile);
   socket_server.set_client(&client);
   socket_server.set_conductor(conductor);
   conductor.get()->StartLogin("localhost", 8888);

@@ -24,6 +24,7 @@ LedbatDataMediaChannel::LedbatDataMediaChannel() {
   sending_ = false;
   debug_log_ = false;
   utp_state_ = 0;
+  send_buffer_ = NULL;
 
   ctx_ = utp_init(2);
 
@@ -141,6 +142,11 @@ void LedbatDataMediaChannel::OnMessage(talk_base::Message* message) {
     }
     case MSG_DEFERRED_ACKS: {
       utp_issue_deferred_acks(ctx_);
+
+      // Tune here:
+      SignalReadyToSend(true);
+      SendOutstandingBuffer(NULL);
+
       talk_base::Thread::Current()->PostDelayed(100, this, MSG_DEFERRED_ACKS);
       break;
     }
@@ -163,16 +169,15 @@ void LedbatDataMediaChannel::SetDebugName(std::string name) {
   debug_name_ = name;
 }
 
-bool LedbatDataMediaChannel::SendData(const SendDataParams& params,
-              const talk_base::Buffer& payload,
-              SendDataResult* result) {
-  char *send_buffer_ = (char *)payload.data();
-  char *send_buffer_index_ = send_buffer_;
-  size_t buf_len_ = payload.length();
-	while (send_buffer_index_ < send_buffer_ + buf_len_) {
-    size_t sent;
+bool LedbatDataMediaChannel::SendOutstandingBuffer(SendDataResult* result) {
+  if (send_buffer_ == NULL) {
+    return true;
+  }
 
-    sent = utp_write(utp_sock_, send_buffer_index_, send_buffer_ + buf_len_ - send_buffer_index_);
+  while (1) {
+    size_t sent;
+    sent = utp_write(utp_sock_, send_buffer_index_, 
+      send_buffer_ + send_buffer_length_ - send_buffer_index_);
     if (sent == 0) {
       Log("Socket no longer writable");
       return false;
@@ -180,16 +185,40 @@ bool LedbatDataMediaChannel::SendData(const SendDataParams& params,
 
     send_buffer_index_ += sent;
 
-    if (send_buffer_index_ == send_buffer_ + buf_len_) {
+    ASSERT(send_buffer_index_ <= send_buffer_ + send_buffer_length_);
+    if (send_buffer_index_ == send_buffer_ + send_buffer_length_) {
         Log("wrote %zd bytes; buffer now empty", sent);
-        send_buffer_index_ = send_buffer_;
+        delete send_buffer_;
+        send_buffer_ = NULL;
+        send_buffer_index_ = NULL;
+        send_buffer_length_ = 0;
+        return true;
     } else {
-      Log("wrote %zd bytes; %d bytes left in buffer", sent, send_buffer_ + buf_len_ - send_buffer_index_);
+      Log("wrote %zd bytes; %d bytes left in buffer", sent, send_buffer_ + send_buffer_length_ - send_buffer_index_);
     }
+  }
+}
+
+bool LedbatDataMediaChannel::SendData(const SendDataParams& params,
+              const talk_base::Buffer& payload,
+              SendDataResult* result) {
+  *result = SDR_ERROR;
+  if (send_buffer_ != NULL) {
+    SendOutstandingBuffer(NULL);
+    *result = SDR_BLOCK;
+    return false;
+  } else {
+    send_buffer_ = new char[payload.length()];
+    memcpy(send_buffer_, payload.data(), payload.length());
+  
+    send_buffer_index_ = send_buffer_;
+    send_buffer_length_ = payload.length();
+    
+    SendOutstandingBuffer(NULL);
+
     *result = cricket::SDR_SUCCESS;
     return true;
   }
-  return false;
 }
 
 void LedbatDataMediaChannel::OnReadyToSend(bool ready) {

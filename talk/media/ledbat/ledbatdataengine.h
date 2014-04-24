@@ -82,6 +82,7 @@ class LedbatDataMediaChannel : public DataMediaChannel, public talk_base::Messag
 	
   private:
   	void Log(const char *fmt, ...);
+    bool SendOutstandingBuffer(SendDataResult* result);
 
 	bool sending_;
 	bool receiving_;
@@ -97,6 +98,9 @@ class LedbatDataMediaChannel : public DataMediaChannel, public talk_base::Messag
     bool debug_log_; 
     struct sockaddr_in ip4addr_; 
     int utp_state_;  
+    char *send_buffer_;
+    char *send_buffer_index_;
+    size_t send_buffer_length_;
 };
 
 } // namespace cricket
