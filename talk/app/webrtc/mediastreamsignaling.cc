@@ -268,6 +268,12 @@ bool MediaStreamSignaling::AddDataChannelFromOpenMessage(
     return false;
   }
 
+  // TODO: This hack limits the number of ledbat channels to one
+  if (data_channel_type == cricket::DCT_LEDBAT && 
+    ledbat_data_channels_.size() > 0)  {
+    return false;
+  }
+
   std::string label;
   InternalDataChannelInit config;
   config.id = params.ssrc;
