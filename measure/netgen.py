@@ -1,0 +1,87 @@
+# encoding: utf-8
+import socket
+import sys
+import time
+
+PORT = 4000
+HOST = "localhost"
+ADDR = (HOST, PORT)
+
+def listen():
+    ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    ssock.setsockopt(0, socket.SO_REUSEADDR, 1)
+    ssock.bind(ADDR)
+    ssock.listen(5)
+    print "Listening on", ADDR
+    while True:
+        sock, sender_addr = ssock.accept()
+        print "Accepted connection!"
+        t = time.time()
+        received_bits = 0
+
+        while True:
+            try:
+                if time.time() - t >= 5:
+                    kbits = (received_bits / 5) / 1000
+                    if kbits >= 1000:
+                        print "Avg speed: %smbit/s" % (kbits / 1000.0)
+                    else:
+                        print "Avg speed: %skbit/s" % kbits
+                    t = time.time()
+                    received_bits = 0
+
+                res = sock.recv(1024)
+                if res:
+                    received_bits += len(res) * 8
+                else:
+                    break
+            except Exception as e:
+                print e
+                break
+
+def connect(BW):
+    DATA = "0123456789"
+    BITS = len(DATA) * 8
+    packets = max(1, int((BW / BITS) / 100))
+    DATA *= packets
+    BITS = len(DATA) * 8
+    SLEEP = (1.0 / (BW / float(BITS))) * 0.9
+
+    print "Connecting to", ADDR
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect(ADDR)
+    sent_bits = 0
+    t = time.time()
+    while True:
+        if time.time() - t >= 1:
+            kbits = sent_bits / 1000
+            if kbits >= 1000:
+                print "Avg speed: %smbit/s" % (kbits / 1000.0)
+            else:
+                print "Avg speed: %skbit/s" % kbits
+            t = time.time()
+            sent_bits = 0
+
+        if sent_bits >= BW:
+            if SLEEP > 0.001:
+                time.sleep(SLEEP)
+            continue
+
+        if sock.send(DATA):
+            sent_bits += BITS
+            if SLEEP > 0.001:
+                time.sleep(SLEEP)
+    sock.close()
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        arg = sys.argv[1]
+        if arg.lower().endswith("kbit"):
+            connect(int(arg[:-len("kbit")]) * 1000)
+        elif arg.lower().endswith("mbit"):
+            connect(int(arg[:-len("mbit")]) * 1000 * 1000)
+        else:
+            connect(int(arg))
+    else:
+        listen()
