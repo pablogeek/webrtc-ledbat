@@ -143,11 +143,12 @@ void LedbatDataMediaChannel::OnMessage(talk_base::Message* message) {
     case MSG_DEFERRED_ACKS: {
       utp_issue_deferred_acks(ctx_);
 
-      // Tune here:
+      // TODO: Tune here:
       SignalReadyToSend(true);
       SendOutstandingBuffer(NULL);
 
-      talk_base::Thread::Current()->PostDelayed(100, this, MSG_DEFERRED_ACKS);
+      // TODO: Tune here
+      talk_base::Thread::Current()->PostDelayed(10, this, MSG_DEFERRED_ACKS);
       break;
     }
   } 
@@ -253,7 +254,7 @@ uint64 LedbatDataMediaChannel::OnUTPStateChange(utp_callback_arguments *a) {
     case UTP_STATE_CONNECT:
     case UTP_STATE_WRITABLE:
       Log("Channel is writable!");
-      LOG(LS_INFO) << "LEDBAT channel is writable";
+      //LOG(LS_INFO) << "LEDBAT channel is writable";
       SignalReadyToSend(true);
       OnReadyToSend(true);
       break;
