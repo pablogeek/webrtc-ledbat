@@ -44,6 +44,7 @@
 #include "talk/app/webrtc/datachannelinterface.h"
 #include "talk/app/webrtc/test/fakeconstraints.h"
 #include "talk/base/messagehandler.h"
+#include <ctime>
 
 namespace webrtc {
 class VideoCaptureModule;
@@ -89,7 +90,6 @@ class Conductor
   virtual void UIThreadCallback(int msg_id, void* data);
 
   void ReadFile();
-
 
   bool SendData(char* data, size_t len) {
     return SendData(data, len, data_channel_);
@@ -197,7 +197,9 @@ class Conductor
   const size_t BUFLEN;
   char* inbuffer_;
   int receive_length_;
+  int receive_length_left_;
   int outstanding_buffer_;
+  clock_t receive_start_;
 };
 
 class ThreadMessageHandler : public talk_base::MessageHandler {

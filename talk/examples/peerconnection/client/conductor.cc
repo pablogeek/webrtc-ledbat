@@ -94,9 +94,9 @@ Conductor::Conductor(PeerConnectionClient* client, talk_base::Thread *t,
   ChannelType channel_type, bool connect, char* sendfile, char* receivefile)
   : peer_id_(-1),
     client_(client), t_(t), channel_type_(channel_type), connect_(connect), 
-    sendfile_(sendfile), receivefile_(receivefile), BUFLEN(1024 * 64), instream_(NULL), 
-    outstream_(NULL), ready_to_send_(false), receive_length_(-1),
-    outstanding_buffer_(-1) {
+    sendfile_(sendfile), receivefile_(receivefile), BUFLEN(1024 * 64), 
+    instream_(NULL), outstream_(NULL), ready_to_send_(false), 
+    receive_length_(-1), receive_length_left_(-1), outstanding_buffer_(-1) {
   inbuffer_ = new char [BUFLEN];
   client_->RegisterObserver(this);
   thread_message_handler_ = new ThreadMessageHandler(this);
@@ -267,12 +267,13 @@ void Conductor::OnAddStream(webrtc::MediaStreamInterface* stream) {
 
 void Conductor::OnMessage(const webrtc::DataBuffer& buffer) {
     webrtc::DataBuffer *b;
-    if (receive_length_ == -1 && buffer.size() >= sizeof(int)) {
+    if (receive_length_left_ == -1 && buffer.size() >= sizeof(int)) {
       int netw_filesize;
       memcpy(&netw_filesize, (char *)buffer.data.data(), sizeof(int));
       int filesize = ntohl(netw_filesize);
       LOG(LS_INFO) << "Received filesize: " << filesize;
       receive_length_ = filesize;
+      receive_length_left_ = filesize;
       b = new webrtc::DataBuffer(talk_base::Buffer(buffer.data.data() + sizeof(int), buffer.size() - sizeof(int)), buffer.binary);
     } else {
       b = (webrtc::DataBuffer *)&buffer;
@@ -287,16 +288,20 @@ void Conductor::OnMessage(const webrtc::DataBuffer& buffer) {
       LOG(INFO) << "\n\n### Message received ###:\n " << std::string(b->data.data(), b->size()) << "\n";
     }
 
-    if (receive_length_ > 0) {
-      receive_length_ -= b->size();
-      if (receive_length_ == 0) {
+    if (receive_length_left_ > 0) {
+      receive_length_left_ -= b->size();
+      if (receive_length_left_ == 0) {
         LOG(LS_INFO) << "All data received!";
         if (outstream_) {
           outstream_->flush();
         }
         SendUIThreadCallback(CLOSE, NULL);
       } else {
-        LOG(LS_INFO) << "Data left to receive: " << receive_length_;
+        LOG(LS_INFO) << "Data left to receive: " << receive_length_left_;
+        double elapsed_secs = double(clock() - receive_start_) / CLOCKS_PER_SEC;
+        LOG(LS_INFO) << "Average speed: " << 
+          ((((receive_length_ - receive_length_left_) * 8) / 
+            elapsed_secs) / 1000) << "kbit/s";
       }
     }
 };
