@@ -72,6 +72,8 @@ class Conductor
     STREAM_REMOVED,
     CLOSE,
     READ_FILE,
+    SPEED_MEASUREMENT,
+    MEASURE_SPEED,
   };
 
   enum ChannelType {

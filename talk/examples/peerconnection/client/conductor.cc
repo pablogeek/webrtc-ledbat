@@ -127,7 +127,7 @@ void Conductor::ReadFile() {
     if(SendData(inbuffer_, outstanding_buffer_)) {
       outstanding_buffer_ = -1;
     } else {
-      t_->PostDelayed(250, thread_message_handler_, Conductor::READ_FILE, NULL);
+      t_->PostDelayed(250, thread_message_handler_, READ_FILE, NULL);
       return;
     }
   }
@@ -274,6 +274,7 @@ void Conductor::OnMessage(const webrtc::DataBuffer& buffer) {
       LOG(LS_INFO) << "Received filesize: " << filesize;
       receive_length_ = filesize;
       receive_length_left_ = filesize;
+      t_->Post(thread_message_handler_, MEASURE_SPEED, NULL);
       b = new webrtc::DataBuffer(talk_base::Buffer(buffer.data.data() + sizeof(int), buffer.size() - sizeof(int)), buffer.binary);
     } else {
       b = (webrtc::DataBuffer *)&buffer;
@@ -296,12 +297,6 @@ void Conductor::OnMessage(const webrtc::DataBuffer& buffer) {
           outstream_->flush();
         }
         SendUIThreadCallback(CLOSE, NULL);
-      } else {
-        LOG(LS_INFO) << "Data left to receive: " << receive_length_left_;
-        double elapsed_secs = double(clock() - receive_start_) / CLOCKS_PER_SEC;
-        LOG(LS_INFO) << "Average speed: " << 
-          ((((receive_length_ - receive_length_left_) * 8) / 
-            elapsed_secs) / 1000) << "kbit/s";
       }
     }
 };
@@ -455,7 +450,7 @@ void Conductor::OnStateChange() {
         }
 
         ready_to_send_ = true;
-        t_->Post(thread_message_handler_, Conductor::READ_FILE, NULL);
+        t_->Post(thread_message_handler_, READ_FILE, NULL);
         
         
       } else if(data_channel_->state() == webrtc::DataChannelInterface::kClosed) {
@@ -623,6 +618,30 @@ void Conductor::UIThreadCallback(int msg_id, void* data) {
           reinterpret_cast<webrtc::MediaStreamInterface*>(
           data);
       stream->Release();
+      break;
+    }
+
+    case MEASURE_SPEED: {
+      // TODO: Verify that the delay of 5000 ms is accurate so that 
+      // it doesn't affect the average calculation
+      t_->PostDelayed(5000, thread_message_handler_, SPEED_MEASUREMENT, 
+          new talk_base::TypedMessageData<int>(receive_length_left_));
+      t_->PostDelayed(500, thread_message_handler_, MEASURE_SPEED, NULL);
+      break;
+    }
+
+    case SPEED_MEASUREMENT: {
+      talk_base::TypedMessageData<int>* message_data =
+        static_cast<talk_base::TypedMessageData<int>*>(data);
+      double avg_speed = ((((message_data->data() - receive_length_left_) * 8) / 
+            5) / 1000);
+      LOG(LS_INFO) << "Data left to receive: " << receive_length_left_;
+      if (avg_speed < 1000) {
+        LOG(LS_INFO) << "Average speed: " << avg_speed << "kbit/s";
+      } else {
+        LOG(LS_INFO) << "Average speed: " << (avg_speed / 1000) << "mbit/s";
+      }
+      
       break;
     }
 
