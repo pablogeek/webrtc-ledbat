@@ -1,7 +1,7 @@
 /* Flow:
 To checkout a new copy of the gclient+git-repos this might work:
 gclient sync --force
-svn update -r 5693
+svn update -r 5844
 git init
 git remote add --track master origin https://github.com/Peerialism/browser-tranport.git
 git fetch
