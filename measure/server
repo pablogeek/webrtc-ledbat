@@ -1,1 +1,1 @@
-../out/Debug/peerconnection_server
+../out/Debug/peerconnection_server $@
