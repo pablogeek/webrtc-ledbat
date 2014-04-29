@@ -9,7 +9,6 @@ ADDR = (HOST, PORT)
 
 def listen():
     ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    ssock.setsockopt(0, socket.SO_REUSEADDR, 1)
     ssock.bind(ADDR)
     ssock.listen(5)
     print "Listening on", ADDR
@@ -75,6 +74,20 @@ def connect(BW):
 
 
 if __name__ == "__main__":
+    remove = []
+    for n, arg in enumerate(sys.argv):
+        if arg == "--port":
+            PORT = int(sys.argv[n+1])
+            ADDR = (HOST, PORT)
+            remove.append(n)
+            remove.append(n+1)
+        if arg == "--host":
+            HOST = sys.argv[n+1]
+            ADDR = (HOST, PORT)
+            remove.append(n)
+            remove.append(n+1)
+    for r in reversed(remove):
+        del sys.argv[r]
     if len(sys.argv) > 1:
         arg = sys.argv[1]
         if arg.lower().endswith("kbit"):

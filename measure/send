@@ -1,6 +1,8 @@
 PROTO="$1"
 FILE="$2"
+PORT="$3"
 if [ -z "$PROTO" ]; then PROTO="ledbat"; fi
 if [ -z "$FILE" ]; then FILE="d/garbage"; fi
+if [ -z "$PORT" ]; then PORT="8888"; fi
 
-../out/Debug/peerconnection_client --channeltype $PROTO --connect --sendfile $FILE
+../out/Debug/peerconnection_client --channeltype $PROTO --connect --sendfile $FILE --port $PORT
