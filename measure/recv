@@ -1,8 +1,10 @@
 PROTO="$1"
 FILE="$2"
 PORT="$3"
+SERVER="$4"
 if [ -z "$PROTO" ]; then PROTO="ledbat"; fi
 if [ -z "$FILE" ]; then FILE="out"; fi
 if [ -z "$PORT" ]; then PORT="8888"; fi
+if [ -z "$SERVER" ]; then SERVER="localhost"; fi
 
-../out/Debug/peerconnection_client --channeltype $PROTO --receivefile $FILE --port $PORT
+../out/Debug/peerconnection_client --channeltype $PROTO --receivefile $FILE --port $PORT --server $SERVER

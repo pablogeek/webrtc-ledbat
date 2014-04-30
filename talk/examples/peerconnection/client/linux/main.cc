@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
   //Conductor(PeerConnectionClient* client, talk_base::Thread *t, ChannelType channel_type, bool connect, char* sendfile, char* receivefile);
   socket_server.set_client(&client);
   socket_server.set_conductor(conductor);
-  conductor.get()->StartLogin("localhost", FLAG_port);
+  conductor.get()->StartLogin(FLAG_server, FLAG_port);
 
   thread->ProcessMessages(talk_base::kForever);
   fprintf(stderr, "%s\n", "Stopping!");

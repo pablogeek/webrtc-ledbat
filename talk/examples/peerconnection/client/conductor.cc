@@ -480,7 +480,7 @@ void Conductor::OnServerConnectionFailure() {
 void Conductor::StartLogin(const std::string& server, int port) {
   if (client_->is_connected())
     return;
-  LOG(LS_INFO) << "Connecting to server on port " << port; 
+  LOG(LS_INFO) << "Connecting to " << server << " on port " << port; 
   server_ = server;
   client_->Connect(server, port, GetPeerName());
 }
