@@ -1,12 +1,37 @@
-/* Flow:
+/* 
 To checkout a new copy of the gclient+git-repos this might work:
-gclient sync --force
-svn update -r 5844
+
+# Follow the guide at http://www.webrtc.org/reference/getting-started for installing prerequisites
+gclient sync --force --revision 5844
+cd trunk/
+# Guide says to run ./build/install-build-deps.sh but it breaks for me half way through. Works anyway
 git init
 git remote add --track master origin https://github.com/Peerialism/browser-tranport.git
 git fetch
+git pull # Gives an error, but that's ok
 git reset --hard
+mv .git .git.bak # gclient tries to use our git instead of svn when running hooks, hide!
+gclient runhooks
+mv .git.bak .git
+ninja -C out/Debug # Install a million packages that are not specified in the install instructions
+cd measure/
+mkdir d/
+cat /dev/urandom > d/garbage # Create a garbage file for testing send. Ctrl+C when big enough
+./server
 
+# Terminal 2:
+./recv
+
+# Terminal 3:
+./send
+
+# Check that it worked
+md5sum d/garbage out
+
+# Hack away!
+
+
+The flow through webrtc:
 Creating a DataEngine and sending some data
 1. Create a DataEngine of a specific type or of a hybrid type
 2. Ask the DataEngine to create a new DataMediaChannel of a specific type, one of DataChannelType
