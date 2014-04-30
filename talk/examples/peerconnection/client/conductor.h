@@ -45,6 +45,7 @@
 #include "talk/app/webrtc/test/fakeconstraints.h"
 #include "talk/base/messagehandler.h"
 #include <ctime>
+#include <fstream>
 
 namespace webrtc {
 class VideoCaptureModule;
@@ -196,12 +197,15 @@ class Conductor
 
   std::ifstream* instream_;
   std::ofstream* outstream_;
+  std::ofstream stats_logstream_;
   const size_t BUFLEN;
+  const int MEASURE_INTERVAL;
   char* inbuffer_;
   int receive_length_;
   int receive_length_left_;
   int outstanding_buffer_;
   clock_t receive_start_;
+  std::string channel_type_name_;
 };
 
 class ThreadMessageHandler : public talk_base::MessageHandler {

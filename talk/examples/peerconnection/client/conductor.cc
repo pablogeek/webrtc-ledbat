@@ -39,6 +39,7 @@
 #include "talk/app/webrtc/test/fakeconstraints.h"
 #include "talk/base/messagehandler.h"
 #include "talk/base/messagequeue.h"
+#include <sys/time.h>
 
 /*
 #include <ctype.h>
@@ -95,7 +96,7 @@ Conductor::Conductor(PeerConnectionClient* client, talk_base::Thread *t,
   : peer_id_(-1),
     client_(client), t_(t), channel_type_(channel_type), connect_(connect), 
     sendfile_(sendfile), receivefile_(receivefile), BUFLEN(1024 * 64), 
-    instream_(NULL), outstream_(NULL), ready_to_send_(false), 
+    instream_(NULL), outstream_(NULL), ready_to_send_(false), MEASURE_INTERVAL(2),
     receive_length_(-1), receive_length_left_(-1), outstanding_buffer_(-1) {
   inbuffer_ = new char [BUFLEN];
   client_->RegisterObserver(this);
@@ -200,14 +201,17 @@ bool Conductor::InitializePeerConnection() {
   servers.push_back(server);
   switch (channel_type_) {
     case RTP: {
+      channel_type_name_ = "rtp";
       global_constraints.SetAllowRtpDataChannels();
       break;
     }
     case SCTP: {
+      channel_type_name_ = "sctp";
       global_constraints.SetAllowDtlsSctpDataChannels();
       break;
     }
     case LEDBAT: {
+      channel_type_name_ = "ledbat";
       global_constraints.SetAllowDtlsSctpDataChannels();
       global_constraints.SetAllowLedbatDataChannels();
     }
@@ -295,6 +299,7 @@ void Conductor::OnMessage(const webrtc::DataBuffer& buffer) {
         LOG(LS_INFO) << "All data received!";
         if (outstream_) {
           outstream_->flush();
+          stats_logstream_.flush();
         }
         SendUIThreadCallback(CLOSE, NULL);
       }
@@ -547,6 +552,8 @@ void Conductor::UIThreadCallback(int msg_id, void* data) {
         outstream_->flush();
         outstream_->close();
         delete outstream_;
+        stats_logstream_.flush();
+        stats_logstream_.close();        
         receivefile_ = NULL;
       }
       DeletePeerConnection();
@@ -625,24 +632,35 @@ void Conductor::UIThreadCallback(int msg_id, void* data) {
     case MEASURE_SPEED: {
       // TODO: Verify that the delay of 5000 ms is accurate so that 
       // it doesn't affect the average calculation
-      t_->PostDelayed(5000, thread_message_handler_, SPEED_MEASUREMENT, 
+      t_->PostDelayed((MEASURE_INTERVAL * 1000), thread_message_handler_, SPEED_MEASUREMENT, 
           new talk_base::TypedMessageData<int>(receive_length_left_));
       t_->PostDelayed(500, thread_message_handler_, MEASURE_SPEED, NULL);
       break;
     }
 
     case SPEED_MEASUREMENT: {
+      if (stats_logstream_ == NULL) {
+        std::string filename("stats_logstream_");
+        filename += channel_type_name_;
+        filename += ".log";
+        stats_logstream_.open(filename.c_str());
+      }
       talk_base::TypedMessageData<int>* message_data =
         static_cast<talk_base::TypedMessageData<int>*>(data);
       double avg_speed = ((((message_data->data() - receive_length_left_) * 8) / 
-            5) / 1000);
+            MEASURE_INTERVAL) / 1000);
       LOG(LS_INFO) << "Data left to receive: " << receive_length_left_;
       if (avg_speed < 1000) {
         LOG(LS_INFO) << "Average speed: " << avg_speed << "kbit/s";
       } else {
         LOG(LS_INFO) << "Average speed: " << (avg_speed / 1000) << "mbit/s";
       }
-      
+      struct timeval tp;
+      gettimeofday(&tp, NULL);
+      long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+
+      stats_logstream_ << ms << "\t" << (avg_speed / 1000) << "\n";
+      stats_logstream_.flush();
       break;
     }
 

@@ -8,35 +8,39 @@ HOST = "localhost"
 ADDR = (HOST, PORT)
 
 def listen():
+    MEASURE_INTERVAL = 0.5
     ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ssock.bind(ADDR)
     ssock.listen(5)
     print "Listening on", ADDR
-    while True:
-        sock, sender_addr = ssock.accept()
-        print "Accepted connection!"
-        t = time.time()
-        received_bits = 0
-
+    with open("netgen.log", "w") as netgen_log:
         while True:
-            try:
-                if time.time() - t >= 5:
-                    kbits = (received_bits / 5) / 1000
-                    if kbits >= 1000:
-                        print "Avg speed: %smbit/s" % (kbits / 1000.0)
-                    else:
-                        print "Avg speed: %skbit/s" % kbits
-                    t = time.time()
-                    received_bits = 0
+            sock, sender_addr = ssock.accept()
+            print "Accepted connection!"
+            t = time.time()
+            received_bits = 0
 
-                res = sock.recv(1024)
-                if res:
-                    received_bits += len(res) * 8
-                else:
+            while True:
+                try:
+                    if time.time() - t >= MEASURE_INTERVAL:
+                        kbits = (received_bits / MEASURE_INTERVAL) / 1000
+                        netgen_log.write("%s\t%s\n" % (int(time.time() * 1000), kbits / 1000.0))
+                        netgen_log.flush()
+                        if kbits >= 1000:
+                            print "Avg speed: %smbit/s" % (kbits / 1000.0)
+                        else:
+                            print "Avg speed: %skbit/s" % kbits
+                        t = time.time()
+                        received_bits = 0
+
+                    res = sock.recv(1024)
+                    if res:
+                        received_bits += len(res) * 8
+                    else:
+                        break
+                except Exception as e:
+                    print e
                     break
-            except Exception as e:
-                print e
-                break
 
 def connect(BW):
     DATA = "0123456789"
