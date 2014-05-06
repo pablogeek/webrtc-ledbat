@@ -58,6 +58,19 @@ In this work, we present a
 \mysec{Introduction}
 
 % WebRTC general 
+Recently, the WebRTC standard has been steadily gaining popularity fueled by the inclusion
+of full support in most of the browsers on the market. WebRTC mandates the multimedia and
+peer-to-peer connectivity stacks for real-time services, once provided by external
+plugins, to be built directly into the browser. That involves that the functionality of
+those stacks, such as video acquisition, noise cancelling and NAT traversal, is made
+available to developers of real-time applicaitons through HTML5 APIs. Although WebRTC has
+been mainly designed as a framework to facilitate video and audio conferencing, it does
+include support for building other types of peer-to-peer applications, such as CDN
+accellerators~\cite{} and video streaming platforms~\cite{}. This feature is provided
+through the DataChannel abstraction, which allows the transfer of arbitrary data over the
+an ecnrypted RTCConnection established with WebRTC's NAT traversal facilities. The
+DataChannel APIs make use of the SCTP protocol. SCTP is a message-oriented protocol that
+provides configurable reliability of transfers and TCP-friendliness.
 
 % WebRTC congestion control. GCC and SCTP
 
