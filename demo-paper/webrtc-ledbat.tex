@@ -56,50 +56,62 @@ In this work, we present a
 \keywords{LEDBAT, WebRTC, Peer-to-peer}
 
 \mysec{Introduction}
+
+% WebRTC general 
+
+% WebRTC congestion control. GCC and SCTP
+
+% Why LEDBAT is important
+
+% What we did
+
+% Open source
+
+
 % General video
-As of December 2013, video streaming constitutes $29\%$ of the Internet traffic worldwide
-and it is expected to grow four times in volume in the next $3$ years~\cite{cisco}.  Given
-these growth figures, it is unclear if current Content Delivery Network (CDN) technology
-will be able to efficiently support such large amount of traffic in a cost-effective manner.
+% As of December 2013, video streaming constitutes $29\%$ of the Internet traffic worldwide
+% and it is expected to grow four times in volume in the next $3$ years~\cite{cisco}.  Given
+% these growth figures, it is unclear if current Content Delivery Network (CDN) technology
+% will be able to efficiently support such large amount of traffic in a cost-effective manner.
 
-% Why p2p is good
-Peer-to-peer (P2P) technology has been proposed as a complement to standard CDN
-infrastructure to greatly reduce distribution costs and improve quality of user experience
-for viewers~\cite{cdn-p2p}. In an industrial setting, we already find instances of such
-P2P platforms in Akamai's NetSession~\cite{netsession} and Adobe RTMFP
-platform~\footnote{http://labs.adobe.com/technologies/cirrus/}, a part of the Adobe Flash plugin.
+% % Why p2p is good
+% Peer-to-peer (P2P) technology has been proposed as a complement to standard CDN
+% infrastructure to greatly reduce distribution costs and improve quality of user experience
+% for viewers~\cite{cdn-p2p}. In an industrial setting, we already find instances of such
+% P2P platforms in Akamai's NetSession~\cite{netsession} and Adobe RTMFP
+% platform~\footnote{http://labs.adobe.com/technologies/cirrus/}, a part of the Adobe Flash plugin.
 
-%Adoption
-However, up until now, adoption of P2P technology for content distribution has been
-hindered by the fact that available platforms require the installation of client-side
-software, as in NetSession, or a browser plugin, as in RTMFP.
+% %Adoption
+% However, up until now, adoption of P2P technology for content distribution has been
+% hindered by the fact that available platforms require the installation of client-side
+% software, as in NetSession, or a browser plugin, as in RTMFP.
 
-% Even better if p2p streaming in browser: WebRTC and frictionless deployment
-Fortunately, with the advent of the WebRTC standard, this limitation is bound to
-disappear. WebRTC defines a set of APIs, to be included in all browsers, that are designed
-to facilitate the development of browser-based real-time P2P applications. As a
-consequence, WebRTC completely removes the need for third-party plugins or client-side
-software and allows frictionless deployment of new P2P-based services as Javascript
-applications. In order to achieve that goal, functionalities necessary to real-time
-applications, such as NAT Traversal and real-time transport protocols, have been built
-directly into the browser. Currently, stable WebRTC implementations exists in three major
-browsers, that is Chrome, Firefox and Opera.
+% % Even better if p2p streaming in browser: WebRTC and frictionless deployment
+% Fortunately, with the advent of the WebRTC standard, this limitation is bound to
+% disappear. WebRTC defines a set of APIs, to be included in all browsers, that are designed
+% to facilitate the development of browser-based real-time P2P applications. As a
+% consequence, WebRTC completely removes the need for third-party plugins or client-side
+% software and allows frictionless deployment of new P2P-based services as Javascript
+% applications. In order to achieve that goal, functionalities necessary to real-time
+% applications, such as NAT Traversal and real-time transport protocols, have been built
+% directly into the browser. Currently, stable WebRTC implementations exists in three major
+% browsers, that is Chrome, Firefox and Opera.
 
-In this work, we present a browser-based distributed caching application, called
-\textit{Hive.js}, that leverages a P2P overlay network created with WebRTC to
-significantly reduce the load on traditional CDNs. We implement our solution considering
-the realities of the streaming market by adopting adaptive HTTP streaming and,
-specifically, MPEG-DASH~\footnote{http://dashif.org/mpeg-dash/} as streaming protocol of
-choice. DASH is already widely embraced by providers, such as YouTube, and it is expected
-to become the de-facto standard for the distribution of video content on the Internet.
+% In this work, we present a browser-based distributed caching application, called
+% \textit{Hive.js}, that leverages a P2P overlay network created with WebRTC to
+% significantly reduce the load on traditional CDNs. We implement our solution considering
+% the realities of the streaming market by adopting adaptive HTTP streaming and,
+% specifically, MPEG-DASH~\footnote{http://dashif.org/mpeg-dash/} as streaming protocol of
+% choice. DASH is already widely embraced by providers, such as YouTube, and it is expected
+% to become the de-facto standard for the distribution of video content on the Internet.
 
-Hive.js is the plugin-less version of the commercial P2P streaming application Hive
-Streaming\footnote{www.hivestreaming.com}~\cite{roverso2013http}. Initial results obtained
-in a realistic yet controlled environment show that Hive.js, albeit still in a prototype
-phase, is able to significantly offload traditional CDN while maintaining a good level of
-quality of user experience.
+% Hive.js is the plugin-less version of the commercial P2P streaming application Hive
+% Streaming\footnote{www.hivestreaming.com}~\cite{roverso2013http}. Initial results obtained
+% in a realistic yet controlled environment show that Hive.js, albeit still in a prototype
+% phase, is able to significantly offload traditional CDN while maintaining a good level of
+% quality of user experience.
 
-The current version of Hive.js is open source and can be found at~\cite{hive-repo}.
+% The current version of Hive.js is open source and can be found at~\cite{hive-repo}.
 
 % What is DASH
 % The DASH standard aims at defining a protocol for the
@@ -198,82 +210,82 @@ The current version of Hive.js is open source and can be found at~\cite{hive-rep
 \end{figure}
 
 
-\mysec{System Overview}
+\mysec{LEDBAT in WebRTC}
 \label{sec:architecture}
 
-% General
-The design of our system is based on a Distributed Caching model that works as follows:
-upon a content fragment request from the DASH player, the distributed cache tries to
-timely retrieve the data requested from other peers in the overlay. If a fragment cannot
-be retrieved from any other peer on time, the agent downloads it from the source of the
-stream, i.e. the CDN. By falling back to the source, we make sure that all fragments are
-delivered to the player even if the overlay network cannot retrieve such fragments,
-thereby guaranteeing the desired level of QoE.
+% % General
+% The design of our system is based on a Distributed Caching model that works as follows:
+% upon a content fragment request from the DASH player, the distributed cache tries to
+% timely retrieve the data requested from other peers in the overlay. If a fragment cannot
+% be retrieved from any other peer on time, the agent downloads it from the source of the
+% stream, i.e. the CDN. By falling back to the source, we make sure that all fragments are
+% delivered to the player even if the overlay network cannot retrieve such fragments,
+% thereby guaranteeing the desired level of QoE.
 
-Regarding the overlay, we create a random graph between all peers watching a stream. Each
-node selects a fixed number of neighbours and connects to them. Periodically, the peer
-randomly selects one of its neighbours and terminates the connection to it. After that, it
-connects to a new peer chosen at random from a list of potential neighbours that is
-provided by a central tracker.
+% Regarding the overlay, we create a random graph between all peers watching a stream. Each
+% node selects a fixed number of neighbours and connects to them. Periodically, the peer
+% randomly selects one of its neighbours and terminates the connection to it. After that, it
+% connects to a new peer chosen at random from a list of potential neighbours that is
+% provided by a central tracker.
 
-% Implementation
-In Figure~\ref{fig:architecture}, we show the architecture of our application. We make use
-of the reference DASH player implementation and a set of scripts that implement our
-caching abstraction, the \textit{Distributed Cache} layer in the figure. Upon the load of
-the web page, the DASH player is instructed to load a stream. After that, the
-\textit{Discovery} component initiates a connection to a well-known tracker address using
-the WebSocket Client APIs. 
-% This is because WebRTC does not provide any means of
-% discovering new nodes but that task is left to the application developer as the
-% functionality could be developed in several different ways. 
-Once a successful connection is established, the nodes asks for a list of nodes to connect
-to. The tracker returns a random subset from all peers watching the same stream.
+% % Implementation
+% In Figure~\ref{fig:architecture}, we show the architecture of our application. We make use
+% of the reference DASH player implementation and a set of scripts that implement our
+% caching abstraction, the \textit{Distributed Cache} layer in the figure. Upon the load of
+% the web page, the DASH player is instructed to load a stream. After that, the
+% \textit{Discovery} component initiates a connection to a well-known tracker address using
+% the WebSocket Client APIs. 
+% % This is because WebRTC does not provide any means of
+% % discovering new nodes but that task is left to the application developer as the
+% % functionality could be developed in several different ways. 
+% Once a successful connection is established, the nodes asks for a list of nodes to connect
+% to. The tracker returns a random subset from all peers watching the same stream.
 
-At this point, the peer attempts to establish a WebRTC DataChannel connection with the
-returned peers using the WebRTC's NAT Traversal utilities. If a direct connection could be
-achieved, that is without the need of a relay, the \textit{Peer} component stores
-information about the neighbour in a dedicated \textit{Channel} instance. The Channel
-module interacts with the WebRTC DataChannel API to send and receive data from/to the
-corresponding peer. We choose a configuration of the DataChannel that provides reliable
-message-oriented transfer of data over the SCTP protocol. However, the implementation of
-SCTP in the browsers does not allow the transmission of arbitrarily long messages. Since
-video fragments can be fairly large, in the order of megabytes, we implement a transport
-protocol, in the sub-module \textit{P2P transport}, which transfers fragments in smaller
-chunks of fixed size. The integrity of each chunk is verified by the receiver using a hash
-of the fragment that is sent together with the data.
+% At this point, the peer attempts to establish a WebRTC DataChannel connection with the
+% returned peers using the WebRTC's NAT Traversal utilities. If a direct connection could be
+% achieved, that is without the need of a relay, the \textit{Peer} component stores
+% information about the neighbour in a dedicated \textit{Channel} instance. The Channel
+% module interacts with the WebRTC DataChannel API to send and receive data from/to the
+% corresponding peer. We choose a configuration of the DataChannel that provides reliable
+% message-oriented transfer of data over the SCTP protocol. However, the implementation of
+% SCTP in the browsers does not allow the transmission of arbitrarily long messages. Since
+% video fragments can be fairly large, in the order of megabytes, we implement a transport
+% protocol, in the sub-module \textit{P2P transport}, which transfers fragments in smaller
+% chunks of fixed size. The integrity of each chunk is verified by the receiver using a hash
+% of the fragment that is sent together with the data.
 
 
-% Each chunk a hash of the content calculated on the fly. This is used to check the
-% integrity of the information once it reaches the destination. If the check is successful,
-% an acknowledgement is sent to the sender, which in turn sends the next chunk of fragment
-% data, if any. If no chunk is left, the transfer is terminated and the sender notified. The
-% protocol is implemented in the sub-module \textit{P2P transport}.
+% % Each chunk a hash of the content calculated on the fly. This is used to check the
+% % integrity of the information once it reaches the destination. If the check is successful,
+% % an acknowledgement is sent to the sender, which in turn sends the next chunk of fragment
+% % data, if any. If no chunk is left, the transfer is terminated and the sender notified. The
+% % protocol is implemented in the sub-module \textit{P2P transport}.
 
-The transfer of a fragment is triggered by a request from the DASH player. The player is
-designed in a modular fashion, consequently each module can be easily replaced with a new
-implementation. In order to provide our distributed caching mechanism, we provide an
-alternative implementation of the \textit{Fragment Loader} module. We instrument the
-module to forward fragment requests to the Peer component if a fragment is present at the
-Peer's neighbours. If the fragment is not available, the content is requested to the
-source of the stream with a XMLHttpRequest through the \textit{XHR} interface provided
-by the browser, as it would happen in the standard implementation of the Fragment Loader.
+% The transfer of a fragment is triggered by a request from the DASH player. The player is
+% designed in a modular fashion, consequently each module can be easily replaced with a new
+% implementation. In order to provide our distributed caching mechanism, we provide an
+% alternative implementation of the \textit{Fragment Loader} module. We instrument the
+% module to forward fragment requests to the Peer component if a fragment is present at the
+% Peer's neighbours. If the fragment is not available, the content is requested to the
+% source of the stream with a XMLHttpRequest through the \textit{XHR} interface provided
+% by the browser, as it would happen in the standard implementation of the Fragment Loader.
 
-Upon a successful retrieval of a fragment, either from the source or the overlay, a peer
-stores the fragment data in memory using the \textit{Cache} module and then it sends a
-Have notification to all its neighbours. On the receiving end, a peer inserts the
-information about which fragment is available at which neighbour in the \textit{Index}
-component.
+% Upon a successful retrieval of a fragment, either from the source or the overlay, a peer
+% stores the fragment data in memory using the \textit{Cache} module and then it sends a
+% Have notification to all its neighbours. On the receiving end, a peer inserts the
+% information about which fragment is available at which neighbour in the \textit{Index}
+% component.
 
-% P2P transport
-For the actual retrieval of the fragment from the overlay, we follow a pull-based
-approach. Once the player issues a fragment request, the peer checks if it is present in
-the Index component. If so, the Peer module chooses a neighbour from all possible peers
-uniformly at random and sends a fragment request to it. If the fragment is retrieved
-successfully, the Peer component delivers the data to the DASH player. Otherwise, if the
-transfer was interrupted or it timed out, the fragment is retrieved from the source of the
-content. By falling back to the source, we guarantee that all fragments are delivered to
-the player even if the overlay network cannot retrieve such fragments, thereby preventing
-interruptions to the playback and loss of QoE.
+% % P2P transport
+% For the actual retrieval of the fragment from the overlay, we follow a pull-based
+% approach. Once the player issues a fragment request, the peer checks if it is present in
+% the Index component. If so, the Peer module chooses a neighbour from all possible peers
+% uniformly at random and sends a fragment request to it. If the fragment is retrieved
+% successfully, the Peer component delivers the data to the DASH player. Otherwise, if the
+% transfer was interrupted or it timed out, the fragment is retrieved from the source of the
+% content. By falling back to the source, we guarantee that all fragments are delivered to
+% the player even if the overlay network cannot retrieve such fragments, thereby preventing
+% interruptions to the playback and loss of QoE.
 
 \mysec{Preliminary results and demo}
 
@@ -325,21 +337,21 @@ interruptions to the playback and loss of QoE.
 % neighbours, and as broker for WebRTC connection setups.
 
 % % Metrics
-We conducted a number of initial experiments in a controlled environment to assert the
-feasibility of our approach. The testbed constituted of $30$ dual-core machines with high
-bandwidth capacity (200Mbps). For our tests, we used the $1.1.2$ version of the DASH
-reference player, augmented with Hive.js, and we played a Video-On-Demand production
-stream with 2Mbps of bitrate. In this scenario, Hive.js managed to offload $95\%$ of the
-traffic from the CDN and provide the same quality of user experience as a CDN in terms of
-latency.
+% We conducted a number of initial experiments in a controlled environment to assert the
+% feasibility of our approach. The testbed constituted of $30$ dual-core machines with high
+% bandwidth capacity (200Mbps). For our tests, we used the $1.1.2$ version of the DASH
+% reference player, augmented with Hive.js, and we played a Video-On-Demand production
+% stream with 2Mbps of bitrate. In this scenario, Hive.js managed to offload $95\%$ of the
+% traffic from the CDN and provide the same quality of user experience as a CDN in terms of
+% latency.
 
-In the demo, we will show our platform running on a number of computers on-site and we
-will allow participants to join the demo session from their phone, tablet or laptop. We
-will also provide extensive visualization of the live P2P overlay data and performance
-metrics both from the live sessions and pre-recorded ones.
+% In the demo, we will show our platform running on a number of computers on-site and we
+% will allow participants to join the demo session from their phone, tablet or laptop. We
+% will also provide extensive visualization of the live P2P overlay data and performance
+% metrics both from the live sessions and pre-recorded ones.
 
-Finally, we provide a deployment of our platform at~\cite{hive-repo} for any
-interested party to experiment with.
+% Finally, we provide a deployment of our platform at~\cite{hive-repo} for any
+% interested party to experiment with.
 
 % In our experiments, we observe two main metrics: the player's average buffer size and the
 % amount of savings towards the source of the stream. Monitoring the buffer size is a way to
