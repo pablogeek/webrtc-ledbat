@@ -62,26 +62,25 @@ that show the correct functioning of our implementation.
 \mysec{Introduction}
 % WebRTC general 
 Recently, WebRTC has been steadily gaining popularity fueled by the inclusion in most of
-the browsers on the market. WebRTC mandates the multimedia and peer-to-peer connectivity
-stacks for real-time services, once provided by external plugins, to be built directly
-into the browser. That means that the functionality of those stacks, such as video
-acquisition, noise cancelling and NAT traversal, is directly available through webpage
-code, that is through Javascript and HTML5 APIs. Although WebRTC has been mainly designed
-as a framework to facilitate video and audio conferencing, it does include support for
-building other types of peer-to-peer applications, such as CDN
-accellerators~\cite{peerCDN} and video streaming platforms~\cite{nurminen2013p2p}. This
-feature is provided through the DataChannel abstraction, which allows the transfer of
-arbitrary data over encrypted connections established with WebRTC's NAT traversal
-facilities. The DataChannel API make use of the Stream Control Transfer protocol
-(SCTP)~\cite{sctp} protocol in order to manage data transfers. SCTP is message-oriented
-protocol and provides a variety of options on data transfer to accomodate the needs of
-different types of applications. When setting up a DataChannel, WebRTC applications may
-choose in- or out-of-order delivery, reliable or unreliable delivery and have a specific
-priority level on the channel with respect to other channel. Regarding congestion control,
-the latest version of SCTP included in WebRTC make use of the same congestion control
-found in H-TCP~\cite{htcp}. The main characteristic of H-TCP is that it delivers the same
-priority as TCP in low bandwidth networks while trying to exploit better capacity large
-bandwidth links always compared to TCP.
+the browsers on the market. The WebRTC standard mandates the multimedia and peer-to-peer
+connectivity stacks for real-time services, once provided by external plugins, to be built
+directly into the browser. That means that the functionality of those stacks, such as
+video acquisition, noise cancelling and NAT traversal, is directly available through
+Javascript and HTML5 APIs. Although WebRTC has been mainly designed as a framework to
+facilitate video and audio conferencing, it does include support for building other types
+of peer-to-peer applications, such as CDN accellerators~\cite{peerCDN} and video streaming
+platforms~\cite{nurminen2013p2p}. This feature is provided through the DataChannel
+abstraction, which allows the transfer of arbitrary data over encrypted connections
+established with WebRTC's NAT traversal facilities. The DataChannel API make use of the
+Stream Control Transfer protocol (SCTP)~\cite{sctp} protocol in order to manage data
+transfers. SCTP is message-oriented protocol and provides a variety of options on data
+transfer to accomodate the needs of different types of applications. When setting up a
+DataChannel, WebRTC applications may choose in- or out-of-order delivery, reliable or
+unreliable delivery and have a specific priority level on the channel. Regarding
+congestion control, the latest version of SCTP included in WebRTC make use of the same
+congestion control found in H-TCP~\cite{htcp}. The main characteristic of H-TCP is that it
+delivers the same priority as TCP in low bandwidth networks while trying to exploit better
+capacity large bandwidth links always compared to TCP.
 
 % Why LEDBAT is important
 Although the DataChannel implementation currently provides very useful features, it lacks
@@ -97,10 +96,10 @@ platfroms~\cite{smoothcache}\cite{roberto-thesis}.
 % What we did 
 In this paper, we present what is, to the best of our knowledge, the first implementation
 of LEDBAT for the WebRTC framework. In particular, we detail how we integrated the
-protocol in the WebRTC stack in a way that features such as relialibility, in-order
-delivery and encryption could also be applied to LEDBAT transfers and not only to
-SCTP-generated ones. We also include preliminary results of this effort that show the
-correct functioning of our implementation.
+protocol in the WebRTC stack such that features like relialibility, in-order delivery and
+encryption could also be applied to LEDBAT and not only to SCTP. We also include
+preliminary results of this effort that show the correct functioning of our
+implementation.
 
 % Open source
 The implementation is open-source and can be found at~\cite{}. We hope that, by adding
