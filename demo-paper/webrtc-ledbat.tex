@@ -5,6 +5,7 @@
 \usepackage{float}
 \usepackage{subfig}
 \usepackage{caption}
+\DeclareCaptionType{copyrightbox}
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{algorithm,algorithmicx}
@@ -14,7 +15,7 @@
 %\normalem
 
 
-\title{Why so aggresive? Low Extra Delay Backround Traffic (LEDBAT) in WebRTC}
+\title{Why so aggressive? Low Extra Delay Backround Traffic (LEDBAT) in WebRTC}
 
 \numberofauthors{3}
 
@@ -23,7 +24,7 @@
 Riccardo Reale\\
       \affaddr{Peerialism AB}\\
       \affaddr{Stockholm, Sweden}\\
-      \email{mikael@peerialism.com}
+      \email{riccardo@peerialism.com}
 \alignauthor
 Anton Blomberg\\
       \affaddr{Stockholm University}\\
@@ -48,8 +49,8 @@ Roberto Roverso\\
 
 In this paper, we present what is, to the best of our knowledge, the first implementation
 of LEDBAT for the WebRTC framework. In particular, we detail how we integrated the
-protocol in the WebRTC stack in a way that features such as relialibility, in-order
-delivery and encryption could also be applied to LEDBAT transfers and not only to
+protocol in the WebRTC stack in a way that features such as reliability, in-order
+delivery and encryption \textbf{ (NAT?)} could also be applied to LEDBAT transfers and not only to
 the existing transfer protocol (SCTP). We also include preliminary results of this effort
 that show the correct functioning of our implementation.
 \end{abstract}
@@ -85,8 +86,8 @@ capacity large bandwidth links always compared to TCP.
 % Why LEDBAT is important
 Although the DataChannel implementation currently provides very useful features, it lacks
 a fundamental component that is low priority traffic. This is usually provided in P2P
-network stacks by a delay-based congestion protocol such as LEDBAT~\cite{ledbat}. LEDBAT
-achieves low priority behavior by completely yeilding to other TCP traffic on the same
+network stacks by a delay-based congestion control protocol such as LEDBAT~\cite{ledbat}. LEDBAT
+achieves low priority behaviour by completely yielding to other TCP traffic on the same
 network and by keeping the delay on a link fixed to a low and constant target. By adopting
 such protocol, data-intensive applications such as Bittorrent avoid disrupting both
 TCP-based web browsing and low delay VoIP applications. Low priority traffic is also a
@@ -243,13 +244,22 @@ and the typical application of WebRTC, that is conferencing.
 
 \begin{figure}[t]
   \centering
-    \includegraphics[width=0.46\textwidth]{figs/architecture}
+    \includegraphics[width=0.46\textwidth]{figs/architecture2}
 \vspace*{-0.38cm}
-	\caption{Architecture of Node} \label{fig:architecture}
+	\caption{WebRTC protocol stack} \label{fig:architecture}
 \vspace*{-0.4cm}
 \end{figure}
 
 \mysec{LEDBAT in WebRTC}
+
+% - how SCTP work
+%The main reason why SCTP was chosen as application level transport protocol for the DataChannel is that it natively support some interesting features such as configurable in-order delivery, configurable reliability and a channel priority level defined by the application. Moreover it provides flow control and congestion control, while security is ensured by tunnelling all the traffic through a secure DTLS session, which itself run on top of UDP.
+The WebRTC DataChannel currently includes a user-level SCTP implementation built on top of UDP. Moreover, before sending the data, all the traffic is tunnelled through a secure DTLS session, to ensure confidentiality and integrity of the transferred data.
+
+% - why uTP
+In order to implement LEDBAT support in WebRTC we decided to integrate \textit{uTP} \cite{utp-repo} as an alternative to SCTP. uTP is the open-source BitTorrent implementation of LEDBAT and provides also reliability and in-order delivery. The library is built on top of UDP, and therefore it can make use of the existing DataChannel protocol stack, included DTLS and the NAT-traversal component. The DataChannel API has been therefore modified to add the possibility to choose between SCTP and uTP as transport protocol to use when creating a data channel between two WebRTC instances. In Figure \ref{fig:architecture} is shown the resulting WebRTC protocol stack.
+
+
 \label{sec:architecture}
 
 % % General
@@ -326,8 +336,17 @@ and the typical application of WebRTC, that is conferencing.
 % the player even if the overlay network cannot retrieve such fragments, thereby preventing
 % interruptions to the playback and loss of QoE.
 
-\mysec{Preliminary results and demo}
+\mysec{Preliminary results}
 
+
+
+\begin{figure}[t]
+  \centering
+    \includegraphics[width=0.46\textwidth]{figs/2ledbat_tcp}
+\vspace*{-0.38cm}
+	\caption{Two LEDBAT streams shares a 1Mbit/s bottleneck with a TCP stream} \label{fig:2ledbat_tcp}
+\vspace*{-0.4cm}
+\end{figure}
 % \mysec{Evaluation}
 
 % \begin{figure*}[t]
