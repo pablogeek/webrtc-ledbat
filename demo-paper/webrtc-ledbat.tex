@@ -46,9 +46,9 @@ Roberto Roverso\\
   In this paper, we present what is, to the best of our knowledge, the first
   implementation of LEDBAT for the WebRTC framework. By providing support for LEDBAT, we
   enable the development of data-intensive P2P applications on top of WebRTC, such as
-  file-sharing and video streaming. This effort is a first step in the process of
-  addressing shortcomings in the current WebRTC framework that hinder wide adoption
-  of this technology. 
+  file-sharing and video streaming. This work constitutes the first step in the process of
+  studying and improving WebRTC's transport protocol stack in the context of a real
+  use-case, that is video streaming. 
 \end{abstract}
 
 \category{C.2.2}{Computer-Communication Networks}{Network Protocols}
@@ -87,10 +87,11 @@ peer-assisted streaming application called Hive Streaming~\cite{hive}. Hive util
 priority traffic to prefetch data from other peers ahead of the playback deadline without
 disrupting other traffic in the network.
 
-In general, our goal is to study the functionality and performance of WebRTC in order to
-address possible shortcomings that prevent wide adoption of this technology. For that,
-besides adding support for low priority, we intend to provide a detailed analysis of the
-behavior of WebRTC's transport protocols in a real use-case, that is video streaming. 
+Besides including LEDBAT in WebRTC, our greater goal is to study the functionality and
+performance of WebRTC's transport protocols in order to address possible shortcomings that
+would prevent wide adoption of this technology. For that, as the next step, we intend to
+provide a detailed analysis of the behavior of WebRTC's transport protocols in a real
+use-case, that is video streaming.
 
 In order to promote adoption of our WebRTC implementation and other improvements to the
 WebRTC stack, we make our code available as open-source at~\cite{webrtc-utp}.
@@ -109,7 +110,7 @@ WebRTC stack, we make our code available as open-source at~\cite{webrtc-utp}.
   \centering
     \includegraphics[width=0.30\textwidth]{figs/architecture3}
 \vspace*{-0.38cm}
-	\caption{WebRTC protocol stack} \label{fig:architecture}
+	\caption{Modified WebRTC protocol stack} \label{fig:architecture}
 \vspace*{-0.4cm}
 \end{figure}
 
@@ -123,15 +124,15 @@ the DataChannel abstraction.
 %The main reason why SCTP was chosen as application level transport protocol for the DataChannel is that it natively support some interesting features such as configurable in-order delivery, configurable reliability and a channel priority level defined by the application. Moreover it provides flow control and congestion control, while security is ensured by tunnelling all the traffic through a secure DTLS session, which itself run on top of UDP.
 
 
-The DataChannel API make use of the Stream Control Transfer protocol (SCTP)~\cite{sctp}
-protocol in order to manage data transfers. SCTP is message-oriented protocol that
-provides a variety of options on data transfer to accomodate the needs of different types
-of applications. When setting up a DataChannel, WebRTC applications may choose in- or
-out-of-order delivery, reliable or unreliable delivery and have a specific priority level
-on the channel. Regarding congestion control, the latest version of SCTP included in
-WebRTC make use of the same algorithm found in H-TCP~\cite{htcp}. The main characteristic
-of H-TCP is that it delivers the same priority as TCP in low bandwidth networks while
-trying to better exploit high delay but large bandwidth links compared to TCP.
+The DataChannel API make use of the Stream Control Transfer protocol
+(SCTP)~\cite{sctp-rfc} protocol in order to manage data transfers. SCTP is
+message-oriented protocol that provides a variety of options on data transfer to
+accomodate the needs of different types of applications. When setting up a DataChannel,
+WebRTC applications may choose in- or out-of-order delivery and reliable or unreliable
+delivery. Regarding congestion control, the latest version of SCTP included in WebRTC make
+use of the same algorithm found in H-TCP~\cite{htcp}. The main characteristic of H-TCP is
+that it delivers the same priority as TCP in low bandwidth networks while trying to better
+exploit high delay but large bandwidth links compared to TCP.
 
 The current version of WebRTC's DataChannel incorporates a user-level SCTP
 implementation~\footnote{http://sctp.fh-muenster.de/sctp-user-land-stack.html} written in \textit{C} and built
