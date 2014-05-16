@@ -69,7 +69,7 @@ of peer-to-peer applications, such as CDN accelerators~\cite{peerCDN} and video 
 platforms~\cite{nurminen2013p2p}. This feature is provided through the DataChannel
 abstraction, which allows the transfer of arbitrary data over encrypted connections
 established with WebRTC's NAT traversal facilities. The DataChannel API make use of the
-Stream Control Transfer protocol (SCTP)~\cite{sctp} protocol in order to manage data
+Stream Control Transfer protocol (SCTP)~\cite{sctp-rfc} protocol in order to manage data
 transfers. SCTP is message-oriented protocol and provides a variety of options on data
 transfer to accomodate the needs of different types of applications. When setting up a
 DataChannel, WebRTC applications may choose in- or out-of-order delivery, reliable or
@@ -119,7 +119,7 @@ the typical application of WebRTC, which is conferencing.
 % - how SCTP work
 %The main reason why SCTP was chosen as application level transport protocol for the DataChannel is that it natively support some interesting features such as configurable in-order delivery, configurable reliability and a channel priority level defined by the application. Moreover it provides flow control and congestion control, while security is ensured by tunnelling all the traffic through a secure DTLS session, which itself run on top of UDP.
 The current version of WebRTC's DataChannel incorporates a user-level SCTP
-implementation~\footnote{http://url-of-sctp-implementation} written in \textit{C} and built
+implementation~\footnote{http://sctp.fh-muenster.de/sctp-user-land-stack.html} written in \textit{C} and built
 on top of UDP. SCTP interfaces with a security layer, that is DTLS, which adds security
 and integrity to all traffic sent through a DataChannel session.  All data sent through
 that session is carried over connections that have been established using the ICE NAT
