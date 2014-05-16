@@ -15,7 +15,7 @@
 %\normalem
 
 
-\title{Why so aggressive? Low Extra Delay Backround Traffic (LEDBAT) in WebRTC}
+\title{Why so aggressive? Low Extra Delay Background Traffic (LEDBAT) in WebRTC}
 
 \numberofauthors{3}
 
@@ -63,10 +63,10 @@ the browsers on the market. The WebRTC standard mandates the multimedia and peer
 connectivity stacks for real-time services, once provided by external plugins, to be built
 directly into the browser. That means that features of those stacks, such as video
 acquisition/encoding, encryption and NAT traversal, are made available to developers
-through HTML5 APIs. Although WebRTC has been mainly designed as a framework to facilitate
-video and audio conferencing, it does include support for building other types of
-peer-to-peer applications, such as CDN accellerators~\cite{peerCDN} and video streaming
-platforms~\cite{nurminen2013p2p}. 
+through HTML5 APIs. WebRTC was mainly designed as a framework to facilitate video and
+audio conferencing but it does include support for building other types of peer-to-peer
+applications, such as CDN accellerators~\cite{peerCDN} and video streaming
+platforms~\cite{nurminen2013p2p}.
 
 % Why LEDBAT is important
 Although WebRTC currently provides many features, it lacks support for low priority
@@ -81,8 +81,8 @@ link fixed to a low and constant target.
 % What we did 
 In this paper, we present what is, to the best of our knowledge, the first implementation
 of LEDBAT for the WebRTC framework. By providing support for LEDBAT, we enable the
-development of data-intensive applications on top of WebRTC. However, in our specific
-case, the interest in LEDBAT is motivated by the the needs of a commercial peer-assisted
+development of data-intensive applications on top of WebRTC. In our specific case however,
+the interest in LEDBAT is motivated by the the needs of a commercial peer-assisted
 streaming application called Hive Streaming~\cite{hive}. Hive utilizes low priority
 traffic to prefetch data from other peers ahead of the playback deadline without
 disrupting other traffic in the network.
@@ -105,13 +105,14 @@ make our contribution open-source and available at~\cite{webrtc-utp}.
 
 \begin{figure}[t]
   \centering
-    \includegraphics[width=0.46\textwidth]{figs/architecture2}
+    \includegraphics[width=0.30\textwidth]{figs/architecture3}
 \vspace*{-0.38cm}
 	\caption{WebRTC protocol stack} \label{fig:architecture}
 \vspace*{-0.4cm}
 \end{figure}
 
 \mysec{LEDBAT in WebRTC}
+
 
 In WebRTC, transfer of arbitrary data over encrypted P2P channels is a feature provided by
 the DataChannel abstraction. 
@@ -131,18 +132,19 @@ of H-TCP is that it delivers the same priority as TCP in low bandwidth networks 
 trying to better exploit high delay but large bandwidth links compared to TCP.
 
 The current version of WebRTC's DataChannel incorporates a user-level SCTP
-implementation~\footnote{http://url-of-sctp-implementation} written in \textit{C} and built
-on top of UDP. SCTP interfaces with a security layer, that is DTLS, which adds security
-and integrity to all traffic sent through a DataChannel session. All data sent through
-that session is carried over connnections that have been established using the ICE NAT
-Traversal protocol, that is last layer of the WebRTC protocol stack.
+implementation~\footnote{http://sctp.fh-muenster.de/sctp-user-land-stack.html} written in \textit{C} and built
+on top of UDP. SCTP interfaces with a security layer, DTLS, which adds security
+and integrity to all traffic sent through a DataChannel session.  All data sent through
+that session is carried over connections that have been established using the ICE NAT
+Traversal protocol, last layer of the WebRTC protocol stack.
+
 
 % - what we changed
 In order to implement LEDBAT support in WebRTC, we opted to directly integrate the
 \textit{uTP} library \cite{utp-repo} in the WebRTC protocol stack as an optional
 alternative to SCTP. uTP is the reference open-source implementation of LEDBAT and is
-provided by the Bittorrent. Similarly to SCTP, uTP provides reliability, in-order delivery
-and it is layerd over UDP. Given the similarities between the protocols, we were able to
+provided by BitTorrent. Similarly to SCTP, uTP provides reliability, in-order delivery
+and is layered over UDP. Given the similarities between the protocols, we were able to
 easily integrate uTP with the existing WebRTC stack. That, by developing a translation
 layer that interpret API requests from the DataChannel layer for the uTP layer. Besides
 that, we modified the DataChannel API to be able to choose between SCTP and uTP as
@@ -150,22 +152,20 @@ transport protocol when setting up a data channel. The resulting structure of th
 stack is shown in Figure \ref{fig:architecture}. Finally, we were able to channel all data
 processed by the uTP implementation into the DTLS processing.
 
-% - shortcomings
-
 \label{sec:architecture}
 
 \mysec{Preliminary results}
 
 % - setup
 We conducted a preliminary evaluation of our solution in a controlled network environment
-consisting of two host machines, a sender and a receiver, running Linux Ubuntu with kernel
-3.11.0-12 connected through a 100 Mbit/s link. We used Dummynet on the sender host,
-configured to cap the outgoing traffic to 1Mbps, with 100 ms base delay and 60KB of queue
+consisting of two host machines, a sender and a receiver, running Ubuntu Linux with kernel
+3.11.0-12 connected by a 100 Mbps link. We used Dummynet on the sender host,
+configured to cap the outgoing traffic to 1 Mbps, with 100 ms base delay and 60KB of queue
 buffer to simulate a typical WAN gateway scenario. 
 
 In order to test our implementation, we developed a test application in \textit{C} that
-generates traffic using directly the WebRTC Native DataChannel API to emulate the traffic
-generated by a data-intensive browser application. Our test applicaiton can be configured
+generates traffic using the WebRTC Native DataChannel API to emulate the traffic
+of a data-intensive browser application. Our test application can be configured
 to initialize either a STCP DataChannel, or a LEDBAT DataChannel.
 
 Both hosts run our test application and a separate TCP traffic generator to obtain traffic
@@ -176,7 +176,7 @@ session signalling between the sender and the receiver.
 % - metrics
 As metrics, we utilize the throughput of the DataChannel LEDBAT transfers, when competing
 against TCP traffic, and the Round Trip Time (RTT) measured on the link. With these two
-metrics, we verify that LEDBAT transfers for indeed yeild to TCP and, at the same time, we
+metrics, we verify that LEDBAT transfers indeed yield to TCP and, at the same time, we
 evaluate the relative increase on the one-way delay, which directly affects latency and,
 therefore, web browsing responsiveness.
 
@@ -192,22 +192,18 @@ introduced.
 
 %During the initial two minutes of the experiment, the LEDBAT streams correctly use all the available network resources while maintaining the introduced extra delay to a maximum of 100 millisecond, correspondent to the default target delay configured in uTP. At second 120 the two streams quickly release resources in favour of the higher priority TCP flow until it terminates. 
 
-For direct comparison and validation that the normal behavior od SCTP was not affected,
+For direct comparison and validation that the normal behavior of SCTP was not affected,
 Figure \ref{fig:2sctp_tcp} shows the same experiment performed configuring our test
 application to use DataChannel SCTP streams. Besides fairly sharing the link with the TCP
 transfer as expected, each of the SCTP streams introduce a large amount of extra-delay on
 the link as TCP does.
-
-
-
-
 
 \begin{figure}[t]
   \centering
     \includegraphics[width=0.47\textwidth]{figs/2ledbat_tcp}
 \vspace*{-0.38cm}
 	\caption{Two DataChannel LEDBAT streams sharing a 1Mbit/s bottleneck with a TCP stream} \label{fig:2ledbat_tcp}
-\vspace*{-0.4cm}
+%\vspace*{-0.4cm}
 \end{figure}
 
 \begin{figure}[t]
