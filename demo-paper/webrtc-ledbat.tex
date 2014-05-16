@@ -81,17 +81,19 @@ link fixed to a low and constant target.
 % What we did 
 In this paper, we present what is, to the best of our knowledge, the first implementation
 of LEDBAT for the WebRTC framework. By providing support for LEDBAT, we enable the
-development of data-intensive applications on top of WebRTC. In our specific case however,
-the interest in LEDBAT is motivated by the the needs of a commercial peer-assisted
-streaming application called Hive Streaming~\cite{hive}. Hive utilizes low priority
-traffic to prefetch data from other peers ahead of the playback deadline without
+development of data-intensive P2P applications on top of WebRTC. In our specific case
+however, the interest in LEDBAT is motivated by the the needs of a commercial
+peer-assisted streaming application called Hive Streaming~\cite{hive}. Hive utilizes low
+priority traffic to prefetch data from other peers ahead of the playback deadline without
 disrupting other traffic in the network.
 
-This effort constitutes a first step in addressing some of the shortcomings of the current
-WebRTC implementation that prevent wide adoption of this technology in a commercial
-context. In order to encourage the permanent inclusion of LEDBAT into the WebRTC suite, we
-make our contribution open-source and available at~\cite{webrtc-utp}.
-
+In general, our target is to study the functionality and performance of WebRTC in order to
+address the shortcomings that prevent wide adoption of this technology in a commercial
+context. For that, besides adding support for low priority, we intend to analyse the
+behavior of WebRTC's transport protocols in a variety of real applications and suggest
+improvements to the same. In order to encourage the adoption of the our contributions into
+the standard WebRTC suite, we make the implementation of those open-source and available
+at~\cite{webrtc-utp}.
 
 % Given these initial results, we intend to continue to validate the behavior of our
 % implementation of LEDBAT in WebRTC. Most importantly however, we will be concentrating our
