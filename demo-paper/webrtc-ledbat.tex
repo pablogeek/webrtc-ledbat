@@ -124,7 +124,7 @@ the DataChannel abstraction.
 %The main reason why SCTP was chosen as application level transport protocol for the DataChannel is that it natively support some interesting features such as configurable in-order delivery, configurable reliability and a channel priority level defined by the application. Moreover it provides flow control and congestion control, while security is ensured by tunnelling all the traffic through a secure DTLS session, which itself run on top of UDP.
 
 The DataChannel API make use of the Stream Control Transfer protocol
-(SCTP)~\cite{sctp-rfc} protocol in order to manage data transfers. SCTP is
+(SCTP)~\cite{sctp-rfc} protocol in order to manage data transfers. SCTP is a
 message-oriented protocol that provides a variety of options on data transfer to
 accomodate the needs of different types of applications. When setting up a DataChannel,
 WebRTC applications may choose in- or out-of-order delivery and reliable or unreliable
@@ -132,7 +132,6 @@ delivery. Regarding congestion control, the latest version of SCTP included in W
 use of the same algorithm found in H-TCP~\cite{htcp}. The main characteristic of H-TCP is
 that it delivers the same priority as TCP in low bandwidth networks while trying to better
 exploit high delay but large bandwidth links compared to TCP.
-
 
 The current version of WebRTC's DataChannel incorporates a user-level SCTP
 implementation~\footnote{http://sctp.fh-muenster.de/sctp-user-land-stack.html} written in \textit{C} and built
@@ -162,7 +161,7 @@ processed by the uTP implementation into the DTLS processing. The resulting stru
 % - setup
 We conducted a preliminary evaluation of our solution in a controlled network environment
 consisting of two host machines, a sender and a receiver, running Ubuntu Linux with kernel
-3.11.0-12 connected by a 100 Mbps link. We used Dummynet on the sender host,
+3.11.0-12 connected through a 100 Mbps link. We used Dummynet on the sender host,
 configured to cap the outgoing traffic to 1 Mbps, with 100 ms base delay and 60KB of queue
 buffer to simulate a typical WAN gateway scenario. 
 
@@ -177,7 +176,7 @@ Linux congestion control. Finally, a third host acts as a server to handle the W
 session signalling between the sender and the receiver.
 
 % - metrics
-As metrics, we utilize the throughput of the DataChannel LEDBAT transfers, when competing
+As metrics, we utilize the throughput of the DataChannel LEDBAT transfers when competing
 against TCP traffic, and the Round Trip Time (RTT) measured on the link. With these two
 metrics, we verify that LEDBAT transfers indeed yield to TCP and, at the same time, we
 evaluate the relative increase on the one-way delay, which directly affects latency and,
