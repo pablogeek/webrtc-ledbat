@@ -109,7 +109,7 @@ WebRTC stack, we make our code available as open-source at~\cite{webrtc-utp}.
   \centering
     \includegraphics[width=0.30\textwidth]{figs/architecture3}
 \vspace*{-0.38cm}
-	\caption{WebRTC protocol stack} \label{fig:architecture}
+	\caption{Modified WebRTC protocol stack} \label{fig:architecture}
 \vspace*{-0.4cm}
 \end{figure}
 
@@ -127,8 +127,7 @@ The DataChannel API make use of the Stream Control Transfer protocol (SCTP)~\cit
 protocol in order to manage data transfers. SCTP is message-oriented protocol that
 provides a variety of options on data transfer to accomodate the needs of different types
 of applications. When setting up a DataChannel, WebRTC applications may choose in- or
-out-of-order delivery, reliable or unreliable delivery and have a specific priority level
-on the channel. Regarding congestion control, the latest version of SCTP included in
+out-of-order delivery and reliable or unreliable delivery. Regarding congestion control, the latest version of SCTP included in
 WebRTC make use of the same algorithm found in H-TCP~\cite{htcp}. The main characteristic
 of H-TCP is that it delivers the same priority as TCP in low bandwidth networks while
 trying to better exploit high delay but large bandwidth links compared to TCP.
