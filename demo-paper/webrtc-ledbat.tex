@@ -43,13 +43,12 @@ Roberto Roverso\\
 %\vspace*{-1cm}
 
 \begin{abstract}
-
-In this paper, we present what is, to the best of our knowledge, the first implementation
-of LEDBAT for the WebRTC framework. In particular, we detail how we integrated the
-protocol in the WebRTC stack in a way that features such as reliability, in-order
-delivery and encryption \textbf{ (NAT?)} could also be applied to LEDBAT transfers and not only to
-the existing transfer protocol (SCTP). We also include preliminary results of this effort
-that show the correct functioning of our implementation.
+  In this paper, we present what is, to the best of our knowledge, the first
+  implementation of LEDBAT for the WebRTC framework. In particular, we detail how we
+  integrated the protocol in the WebRTC stack in a way that features such as encryption
+  and NAT Traversal could also be applied to LEDBAT transfers and not only to the existing
+  transfer protocol (SCTP). We also include preliminary results of this effort that show
+  the correct functioning of our implementation.
 \end{abstract}
 
 \category{C.2.2}{Computer-Communication Networks}{Network Protocols}
@@ -100,10 +99,10 @@ preliminary results of this effort that show the correct functioning of our
 implementation.
 
 % Open source
-The implementation is open-source and can be found at~\cite{}. We hope that, by adding
-LEDBAT to WebRTC, we will enable a new class of data-intensive applications to be
-developed on Javascript that are pluginless and can coexist with standard web browsing
-and the typical application of WebRTC, that is conferencing.
+The implementation is open-source and can be found at~\cite{webrtc-utp}. We hope that, by
+adding LEDBAT to WebRTC, we will enable the creation of a new class of data-intensive
+web-based P2P applications. Those, will be able to coexist with standard web browsing and
+the typical application of WebRTC, which is conferencing.
 
 
 
@@ -119,33 +118,73 @@ and the typical application of WebRTC, that is conferencing.
 
 % - how SCTP work
 %The main reason why SCTP was chosen as application level transport protocol for the DataChannel is that it natively support some interesting features such as configurable in-order delivery, configurable reliability and a channel priority level defined by the application. Moreover it provides flow control and congestion control, while security is ensured by tunnelling all the traffic through a secure DTLS session, which itself run on top of UDP.
-The WebRTC DataChannel currently includes a user-level SCTP library [?] written in \textit{C} and built on top of UDP. Moreover all the traffic is tunnelled through a secure DTLS session, to ensure confidentiality and integrity of the transferred data.
+The current version of WebRTC's DataChannel incorporates a user-level SCTP
+implementaion~\footnote{http://url-of-sctp-implementation} written in \textit{C} and built
+on top of UDP. SCTP interfaces with a security layer, that is DTLS, which adds security
+and integrity to all traffic sent through a DataChannel session.  All data sent through
+that session is carried over connnections that have been established using the ICE NAT
+Traversal protocol, that is last layer of the WebRTC protocol stack.
 
 % - what we changed
-In order to implement LEDBAT support in WebRTC we decided to directly integrate the \textit{uTP} library \cite{utp-repo} in the DataChannel protocol stack as an alternative to the SCTP one. uTP is the open-source BitTorrent implementation of LEDBAT which also provides reliability and in-order delivery. The library is built on top of UDP, and therefore it can make use of the remaining existing DataChannel protocol stack, included DTLS and the NAT-traversal component. The DataChannel API has been therefore modified to be able to choose between SCTP and uTP as transport protocol to use when setting up a data channel between two WebRTC instances. In Figure \ref{fig:architecture} is shown the resulting WebRTC protocol stack.
+In order to implement LEDBAT support in WebRTC, we opted to directly integrate the
+\textit{uTP} library \cite{utp-repo} in the WebRTC protocol stack as an optional
+alternative to SCTP. uTP is the reference open-source implementation of LEDBAT and is
+provided by the Bittorrent. Similarly to SCTP, uTP provides reliability, in-order delivery
+and it is layerd over UDP. Given the similarities between the protocols, we were able to
+easily integrate uTP with the existing WebRTC stack. That, by developing a translation
+layer that interpret API requests from the DataChannel layer for the uTP layer. Besides
+that, we modified the DataChannel API to be able to choose between SCTP and uTP as
+transport protocol when setting up a data channel. The resulting structure of the WebRTC
+stack is shown in Figure \ref{fig:architecture}. Finally, we were able to channel all data
+processed by the uTP implementation into the DTLS processing.
 
 % - shortcomings
-The DataChannel transport protocol selection is not yet supported by the W3C standard Javascript API, therefore we developed a test application in \textit{C} that generates traffic using directly the WebRTC Native DataChannel API to emulate the traffic generated by a data-intensive browser application.
 
 \label{sec:architecture}
 
 \mysec{Preliminary results}
 
 % - setup
-We conducted a preliminary evaluation of our solution in a controlled network environment consisting of two host machines, a sender and a receiver, running Linux Ubuntu with kernel 3.11.0-12 connected through a 100 Mbit/s link. We used Dummynet on the sender host, configured to cap the outgoing traffic to 1Mbps, with 100 ms base delay and 60KB of queue buffer to simulate a typical WAN gateway scenario. Both hosts run our test application and a separate TCP traffic generator to obtain traffic competing on the same network resources. The browser emulator can be configured to initialize either a STCP DataChannel, or a LEDBAT DataChannel, while the TCP file transfer uses TCP Cubic, the default Linux congestion control. Finally a third host acts as a server to handle the WebRTC session signalling between the sender and the receiver.
+We conducted a preliminary evaluation of our solution in a controlled network environment
+consisting of two host machines, a sender and a receiver, running Linux Ubuntu with kernel
+3.11.0-12 connected through a 100 Mbit/s link. We used Dummynet on the sender host,
+configured to cap the outgoing traffic to 1Mbps, with 100 ms base delay and 60KB of queue
+buffer to simulate a typical WAN gateway scenario. 
+
+In order to test our implementation, we developed a test application in \textit{C} that
+generates traffic using directly the WebRTC Native DataChannel API to emulate the traffic
+generated by a data-intensive browser application. Our test applicaiton can be configured
+to initialize either a STCP DataChannel, or a LEDBAT DataChannel.
+
+Both hosts run our test application and a separate TCP traffic generator to obtain traffic
+competing on the same network resources. TCP file transfer uses TCP Cubic, the default
+Linux congestion control. Finally, a third host acts as a server to handle the WebRTC
+session signalling between the sender and the receiver.
 
 % - metrics
-As metrics to evaluate the uTP library integration we measured the throughput of the generated DataChannel LEDBAT streams competing against a TCP one and the Round Trip Time (RTT) on the bottleneck link. The rationale behind this experiment is to verify the correct behaviour of the LEDBAT congestion control in the presence of higher priority traffic insisting on the same bottleneck, and, at the same time, analyse the relative increase on the one-way delay, which directly affects latency and, therefore, web browsing responsiveness. 
+As metrics, we utilize the throughput of the DataChannel LEDBAT transfers, when competing
+against TCP traffic, and the Round Trip Time (RTT) measured on the link. With these two
+metrics, we verify that LEDBAT transfers for indeed yeild to TCP and, at the same time, we
+evaluate the relative increase on the one-way delay, which directly affects latency and,
+therefore, web browsing responsiveness.
 
 % - evaluation
-Figure \ref{fig:2ledbat_tcp} shows the throughput evolution of two DataChannel LEDBAT streams and a single TCP, starting at 60 seconds distance each, and the correspondent Round Trip Time. The two LEDBAT flows correctly show a background traffic behaviour, using all the available network resources while quickly releasing them in favour of the higher priority TCP flow. The increase in the RTT due to LEDBAT flows is limited to 100 millisecond, which is the default target delay configuration in uTP. Note that the number of LEDBAT streams doesn't affect the amount of extra delay introduced.
+Figure \ref{fig:2ledbat_tcp} shows the throughput evolution of two DataChannel LEDBAT
+streams and a single TCP stream, starting at 60 seconds from each other. The corresponding
+Round Trip Time is also shown above. The two LEDBAT flows, as expected, utilize all
+available bandwidth, until they quickly and completely release the bottleneck in favour of
+the higher priority TCP flow. The increase in the RTT due to the presence of LEDBAT flows
+is limited to 100 millisecond, which is the default target delay configuration in
+uTP. Note that the number of LEDBAT streams doesn't affect the amount of extra delay
+introduced.
 
 %During the initial two minutes of the experiment, the LEDBAT streams correctly use all the available network resources while maintaining the introduced extra delay to a maximum of 100 millisecond, correspondent to the default target delay configured in uTP. At second 120 the two streams quickly release resources in favour of the higher priority TCP flow until it terminates. 
 
-For direct comparison, figure \ref{fig:2sctp_tcp} shows the same experiment performed configuring our test application to use DataChannel SCTP streams. Besides fairly sharing the link with the TCP flow as expected, each of the SCTP streams introduce a large amount of extra-delay on the link.
-
-% - conclusion
-In conclusion, the extra-delay introduced by data-intensive WebRTC application may have strong repercussion on latency-sensible experiences such as web browsing or conferencing, and we recommend the introduction of LEDBAT to overcome this problem.
+For direct comparison and validation that the normal behavior od SCTP was not affected,
+Figure \ref{fig:2sctp_tcp} shows the same experiment performed configuring our test
+application to use DataChannel SCTP streams. Besides fairly sharing the link with the TCP
+transfer as expected, each of the SCTP streams introduce a large amount of extra-delay on
+the link as TCP does.
 
 \begin{figure}[t]
   \centering
