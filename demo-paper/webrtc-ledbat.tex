@@ -161,17 +161,24 @@ connections that have been established using the NAT Traversal protocol.
 
 
 % - what we changed
-In order to implement LEDBAT support in WebRTC, we opted to modify and integrate the
-\textit{uTP} library \cite{utp-repo} in the WebRTC protocol stack as runtime alternative
-to SCTP. uTP is the reference open-source implementation of LEDBAT and is provided by
-BitTorrent. Similarly to SCTP, uTP provides reliability, in-order delivery and is layered
-over UDP. Given the similarities between the protocols, we were able to integrate uTP with
-the existing WebRTC stack by implementing a translation layer in-between the layers. The
-translation layer transaltes API requests from the DataChannel layer for the uTP
-layer. Besides that, we modified the DataChannel API to be able to choose between SCTP and
-uTP as transport protocol when setting up a data channel. Finally, we were able to channel
-all data processed by the uTP implementation into the DTLS processing. The resulting
-structure of the WebRTC stack is shown in Figure \ref{fig:architecture}.
+%In order to implement LEDBAT support in WebRTC, we opted to modify and integrate the
+%\textit{uTP} library \cite{utp-repo} in the WebRTC protocol stack as runtime alternative
+%to SCTP. uTP is the reference open-source implementation of LEDBAT and is provided by
+%BitTorrent. Similarly to SCTP, uTP provides reliability, in-order delivery and is layered
+%over UDP. Given the similarities between the protocols, we were able to integrate uTP with
+%the existing WebRTC stack by implementing a translation layer in-between the layers. The
+%translation layer transaltes API requests from the DataChannel layer for the uTP
+%layer. Besides that, we modified the DataChannel API to be able to choose between SCTP and
+%uTP as transport protocol when setting up a data channel. Finally, we were able to channel
+%all data processed by the uTP implementation into the DTLS processing. The resulting
+%structure of the WebRTC stack is shown in Figure \ref{fig:architecture}.
+
+In order to implement LEDBAT support in WebRTC, we opted to integrate the \textit{uTP} library 
+\cite{utp-repo} in the WebRTC protocol stack as runtime alternative to SCTP. uTP is the reference
+open-source implementation of LEDBAT and is provided by BitTorrent. Similarly to SCTP, uTP 
+provides reliability, in-order delivery and is layered over UDP.
+
+Given the similarities between the protocols, we were able to encapsulate uTP over DTLS over ICE/UDP and integrate it within the existing WebRTC stack by extending the latter with a new data channel type, the LedbatDataMediaChannel. This is managed directly by the LedbatDataEngine, which takes care of registering the callbacks on the uTP sockets and handling the Channel Control Messages. Moreover, since DataChannel and SCTP directly handle application messages rather then data streams, the LedbatDataEngine also takes care of incoming message reconstruction.
 
 \label{sec:architecture}
 
