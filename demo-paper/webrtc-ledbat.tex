@@ -34,7 +34,7 @@ Roberto Roverso\\
       \email{roberto@hivestreaming.com}
 }
 
-\newcommand{\mysec}[1]{\vspace*{-0.0cm}\section{#1}}
+\newcommand{\mysec}[1]{\vspace*{-0.1cm}\section{#1}}
 \newcommand{\mysubsec}[1]{\vspace*{-0.0cm}\subsection{#1}\vspace*{0cm}}
 \newcommand{\mysubsubsec}[1]{\vspace*{-0.0cm}\subsubsection{#1}\vspace*{0cm}}
 \newcommand{\mypar}[1]{\vspace*{-0cm}\paragraph{#1}\vspace*{0cm}}
@@ -75,10 +75,11 @@ facilitate video and audio conferencing but it does include support for building
 types of peer-to-peer applications, such as CDN accellerators~\cite{peerCDN} and video
 streaming platforms~\cite{nurminen2013p2p}.
 
+
 % Why LEDBAT is important
 Although WebRTC currently provides many features, it lacks support for background
 transfers. That is an essential requirement for P2P data-intensive applications, e.g.
-BitTorrent~\cite{bittorrent} and streaming platforms ~\cite{smoothcache}, which utilize
+BitTorrent~\cite{pouwelse2005bittorrent} and streaming platforms ~\cite{smoothcache}, which utilize
 this feature to avoid disrupting other traffic in the network. Support for background
 transfers is provided in dedicated P2P transport library by the adoption of a delay-based
 congestion control protocol, such as LEDBAT~\cite{ledbat-rfc}. LEDBAT has two main
@@ -219,8 +220,6 @@ Figure \ref{fig:2sctp_tcp} shows the same experiment performed configuring our t
 application to use DataChannel SCTP streams. Besides fairly sharing the link with the TCP
 transfer as expected, each of the SCTP streams introduce a large amount of extra-delay on
 the link as TCP does.
-
-\mysec{Demo}
 
 \begin{figure}[t]
   \centering
