@@ -176,22 +176,24 @@ structure of the WebRTC stack is shown in Figure \ref{fig:architecture}.
 
 \mysec{Preliminary results}
 
+
 % - setup
 We conducted a preliminary evaluation of our solution in a controlled network environment
 consisting of two host machines, a sender and a receiver, running Ubuntu Linux with kernel
-3.11.0-12 connected through a 100 Mbps link. We used Dummynet on the sender host,
-configured to cap the outgoing traffic to 1 Mbps, with 100 ms base delay and 60KB of queue
-buffer to simulate a typical WAN gateway scenario. 
+3.11.0-12 connected through a 1 Mbps link with 100 ms base delay and 60KB of queue
+buffer to simulate a typical WAN gateway scenario.
 
-In order to test our implementation, we developed a test application in \textit{C} that
-generates traffic using the WebRTC Native DataChannel API to emulate the traffic
-of a data-intensive browser application. Our test application can be configured
-to initialize either a STCP DataChannel, or a LEDBAT DataChannel.
+%In order to test our implementation, we developed a test application in \textit{C} that
+%generates traffic using the WebRTC Native DataChannel API to emulate the traffic
+%of a data-intensive browser application. Our test application can be configured
+%to initialize either a STCP DataChannel, or a LEDBAT DataChannel.
+%
+%Both hosts run our test application and a separate TCP traffic generator to obtain traffic
+%competing on the same network resources. TCP file transfer uses TCP Cubic, the default
+%Linux congestion control. Finally, a third host acts as a server to handle the WebRTC
+%session signalling between the sender and the receiver.
 
-Both hosts run our test application and a separate TCP traffic generator to obtain traffic
-competing on the same network resources. TCP file transfer uses TCP Cubic, the default
-Linux congestion control. Finally, a third host acts as a server to handle the WebRTC
-session signalling between the sender and the receiver.
+Both hosts run a Chromium browser built with the modified WebRTC module, which can be configured to use either a STCP DataChannel, or a LEDBAT DataChannel. We then use an HTML5 application to generate DataChannel transfers from the sender to the receiver host, and a separate TCP traffic generator to obtain traffic competing on the same network resources.
 
 % - metrics
 As metrics, we utilize the throughput of the DataChannel LEDBAT transfers when competing
