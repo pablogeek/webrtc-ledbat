@@ -156,7 +156,7 @@ however it is designed to deliver better throughput in networks with high delay 
 amount of bandwidth. Therefore, in general, SCTP is expected to equally share the
 bandwidth available with other TCP and SCTP transfers and, as TCP, to introduce arbitrary
 delay on a link. The current version of WebRTC's DataChannel incorporates a user-level SCTP
-implementation~\footnote{http://sctp.fh-muenster.de/sctp-user-land-stack.html} written in
+implementation\footnote{http://sctp.fh-muenster.de/sctp-user-land-stack.html} written in
 \textit{C} and built on top of UDP. SCTP interfaces with a security layer, Datagram
 Transport Layer Security (DTLS), which adds encryption and integrity to all traffic sent
 through a DataChannel session. All data sent through that session is carried over
@@ -176,7 +176,7 @@ connections that have been established using the NAT Traversal protocol.
 %all data processed by the uTP implementation into the DTLS processing. The resulting
 %structure of the WebRTC stack is shown in Figure \ref{fig:architecture}.
 
-In order to implement LEDBAT support in WebRTC, we opted to integrate the \textit{uTP}
+In order to implement LEDBAT support in WebRTC, we opted to integrate the uTP
 library \cite{utp-repo} in the WebRTC protocol stack as runtime alternative to SCTP. uTP
 is the reference open-source implementation of LEDBAT and is provided by BitTorrent.
 Similarly to SCTP, uTP provides reliability, in-order delivery and is layered over UDP. We
@@ -202,7 +202,7 @@ into messages at the receiver.
 We conducted a preliminary evaluation of our solution in a controlled network environment
 consisting of two host machines, a sender and a receiver, running Ubuntu Linux with kernel
 3.11.0-12 connected through a 1 Mbps link with 100 ms base delay and 60KB of queue
-buffer to simulate a typical WAN gateway scenario.
+buffer to simulate a typical last-mile link.
 
 %In order to test our implementation, we developed a test application in \textit{C} that
 %generates traffic using the WebRTC Native DataChannel API to emulate the traffic
