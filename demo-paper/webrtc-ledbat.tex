@@ -23,15 +23,15 @@
 \author{
 \alignauthor
 Riccardo Reale\\
-      \affaddr{Hive Streaming / KTH - Royal Institute of Technology}\\
+      \affaddr{Peerialism AB / KTH - Royal Institute of Technology}\\
       \email{riccardo@hivestreaming.com}
 \alignauthor
 Anton Blomberg\\
-      \affaddr{Stockholm Universitet}\\
-      \email{anton@naetet.se}
+      \affaddr{Stockholm University}\\
+      \email{anbl4171@student.su.se}
 \alignauthor
 Roberto Roverso\\
-      \affaddr{Hive Streaming}\\
+      \affaddr{Peerialism AB}\\
       \email{roberto@hivestreaming.com}
 }
 
@@ -41,6 +41,9 @@ Roberto Roverso\\
 \newcommand{\mysubsubsec}[1]{\vspace*{-0.0cm}\subsubsection{#1}\vspace*{0cm}}
 \newcommand{\mypar}[1]{\vspace*{-0cm}\paragraph{#1}\vspace*{0cm}}
 
+\CopyrightYear{2014}
+\crdata{978-1-4503-3220-0/14/12}
+
 \maketitle
 %\vspace*{-1cm}
 
@@ -48,8 +51,8 @@ Roberto Roverso\\
   The WebRTC framework enables direct browser-to-browser communication for VoIP,
   video-conferencing but also generic javascript-based peer-to-peer (P2P) applications. In
   this
-  paper, we address a major deficiency of the framework, that is the abscence of a
-  background transfer protocol. In doing so, we enable the development of unintrusive
+  paper, we address a major deficiency of the framework, that is the absence of a
+  background transfer protocol. In doing so, we enable the development of un-intrusive
   data-intensive P2P applications, such as file-sharing and content delivery, on top of
   WebRTC.
   % For achieving our goal, we provide an implementation of Lower Extra Delay Background
@@ -67,47 +70,48 @@ This work constitutes the first step in the
 
 \mysec{Introduction}
 % WebRTC general 
-Recently, WebRTC has been steadily gaining popularity, fueled by large scale deployment in
-most of the browsers on the market. The WebRTC standard mandates the multimedia and
-peer-to-peer connectivity stacks for real-time services, once provided by external
-plugins, to be built directly into the browser. As a consequence, the features of those
-stacks, such as video acquisition/encoding, encryption and NAT traversal, are made
-available to developers through HTML5 APIs. WebRTC was mainly designed as a framework to
-facilitate video and audio conferencing but it does include support for building other
-types of peer-to-peer applications, such as CDN accellerators~\cite{peerCDN} and video
-streaming platforms~\cite{nurminen2013p2p}.
+Recently, WebRTC has been steadily gaining popularity, fuelled by large scale deployment in
+most of the browsers on the market, such as Firefox, Chrome and Opera. The WebRTC standard
+mandates the multimedia and peer-to-peer connectivity stacks for real-time services, once
+provided by external plugins, to be built directly into the browser. As a consequence, the
+features of those stacks, such as video acquisition/encoding, encryption and NAT
+traversal, are made available to developers through HTML5 APIs. WebRTC was mainly designed
+as a framework to facilitate video and audio conferencing but it does include support for
+building other types of peer-to-peer applications, such as CDN
+accelerators~\cite{peerCDN} and video streaming platforms~\cite{nurminen2013p2p}.
 
 
 % Why LEDBAT is important
 Although WebRTC currently provides many features, it lacks support for background
 transfers. That is an essential requirement for P2P data-intensive applications, e.g.
-BitTorrent~\cite{pouwelse2005bittorrent} and streaming platforms ~\cite{smoothcache}, which utilize
-this feature to avoid disrupting other traffic in the network. Support for background
-transfers is provided in dedicated P2P transport library by the adoption of a delay-based
-congestion control protocol, such as LEDBAT~\cite{ledbat-rfc}. LEDBAT has two main
-features: first, it completely yields to TCP, and second, it introduces a low and constant
-amount of delay on a link. The former feature allows LEDBAT to back off to all TCP-based
-traffic and therefore do not interfere in terms of bandwidth consumption with, for
-instance, HTTP web browsing traffic and large file transfers through FTP. The latter
-feature instead prevents large LEDBAT transfers to disrupt delay- and jitter-sensitive
-applications, such as voice over ip and gaming. This is in direct contrast to the behavior
-of TCP, which introduces an arbitrary high delay on a link with a significant amount of
-jitter.
+BitTorrent~\cite{pouwelse2005bittorrent} and streaming platforms ~\cite{smoothcache}, to
+avoid disrupting other traffic in the network while transferring large amount of data.
+Support for background transfers is usually implemented by a custom transport protocol
+layered over UDP that includes a special delay-based congestion control, such as for
+instance the Low Extra Delay Background Transport (LEDBAT). LEDBAT has two main features:
+first, it completely yields to TCP, and second, it introduces a low and constant amount of
+delay on a link. The former feature allows LEDBAT to back off to all TCP-based traffic and
+therefore leave all available bandwidth to, for instance, HTTP web browsing traffic and
+large file transfers through FTP. The latter feature instead prevents large LEDBAT
+transfers to disrupt delay- and jitter-sensitive applications, such as voice over ip and
+gaming. This is in direct contrast to the behaviour of TCP, which introduces an arbitrary
+high delay on a link with a significant amount of jitter.
 
 % What we did 
 In this paper, we present what is, to the best of our knowledge, the first implementation
 of a background transfer protocol for the WebRTC framework. By providing support for
-LEDBAT, we enable the development of data-intensive P2P applications on top of
-WebRTC. In our specific case however, the interest in LEDBAT is motivated by the the needs
-of a commercial peer-assisted video distribution application called Hive
-Streaming~\cite{hive}. Hive utilizes low priority traffic to prefetch data from other
-peers ahead of the playback deadline without disrupting other traffic in the network.
+LEDBAT, we enable the development of data-intensive P2P applications on top of WebRTC. In
+our specific case however, the interest in LEDBAT is motivated by the the needs of a
+commercial peer-assisted javascript-based video distribution application called
+Hive~\cite{hive-js}. Hive utilizes low priority traffic to prefetch data from other peers
+ahead of the playback deadline without disrupting other traffic in the network.
 
 Besides including LEDBAT in WebRTC, our greater goal is to provide a comprehensive study
 of the functionality and performance of WebRTC's transport protocols. This, in order to
 understand and address possible shortcomings that would prevent wide adoption of this
 technology. For that, as the next step, we intend to provide a detailed analysis of the
-behavior of WebRTC's transport protocols in a real use-case, that is video streaming.
+behaviour of WebRTC's transport protocols in a real use-case, that is our video streaming
+platform.
 
 In order to promote adoption of our augmented version of WebRTC, which contains background
 transfer support and other improvements to the WebRTC stack, we make our code available
@@ -135,26 +139,23 @@ as open-source at~\cite{webrtc-utp}.
 
 
 In WebRTC, transfer of arbitrary data over P2P channels is a feature provided by the
-DataChannel abstraction.
+DataChannel APIs.
 
 % - how SCTP works
 %The main reason why SCTP was chosen as application level transport protocol for the DataChannel is that it natively support some interesting features such as configurable in-order delivery, configurable reliability and a channel priority level defined by the application. Moreover it provides flow control and congestion control, while security is ensured by tunnelling all the traffic through a secure DTLS session, which itself run on top of UDP.
 
-The DataChannel API make currently use of the Stream Control Transfer protocol
-(SCTP)~\cite{sctp-rfc} protocol in order to manage generic data transfers. SCTP is a
-message-oriented protocol that provides a variety of options on data transfer to
-accomodate the needs of different types of applications, such in- or out-order delivery
-and configurable reliability. 
+The DataChannel implementation currently makes use of the Stream Control Transfer Protocol
+(SCTP)\footnote{http://www.ietf.org/rfc/rfc2960.txt} in order to manage generic data transfers. SCTP is message-oriented
+and provides a variety of options on data transfer to accomodate the needs of different
+types of applications, such as in- or out-of-order delivery and configurable reliability.
 % When setting up a DataChannel,
 % WebRTC applications may choose in- or out-of-order delivery and reliable or unreliable
 % delivery. 
-From the confestion control point of view, SCTP is mainly the same as TCP~\cite{htcp},
+From the congestion control point of view, SCTP is very similar to TCP~\cite{htcp},
 however it is designed to deliver better throughput in networks with high delay but large
 amount of bandwidth. Therefore, in general, SCTP is expected to equally share the
-bandwidth avaialble with other TCP and SCTP transfers and, as TCP, to introduce arbitrary
-delay on a link.
-
-The current version of WebRTC's DataChannel incorporates a user-level SCTP
+bandwidth available with other TCP and SCTP transfers and, as TCP, to introduce arbitrary
+delay on a link. The current version of WebRTC's DataChannel incorporates a user-level SCTP
 implementation~\footnote{http://sctp.fh-muenster.de/sctp-user-land-stack.html} written in
 \textit{C} and built on top of UDP. SCTP interfaces with a security layer, Datagram
 Transport Layer Security (DTLS), which adds encryption and integrity to all traffic sent
@@ -175,14 +176,24 @@ connections that have been established using the NAT Traversal protocol.
 %all data processed by the uTP implementation into the DTLS processing. The resulting
 %structure of the WebRTC stack is shown in Figure \ref{fig:architecture}.
 
-In order to implement LEDBAT support in WebRTC, we opted to integrate the \textit{uTP} library 
-\cite{utp-repo} in the WebRTC protocol stack as runtime alternative to SCTP. uTP is the reference
-open-source implementation of LEDBAT and is provided by BitTorrent. Similarly to SCTP, uTP 
-provides reliability, in-order delivery and is layered over UDP.
+In order to implement LEDBAT support in WebRTC, we opted to integrate the \textit{uTP}
+library \cite{utp-repo} in the WebRTC protocol stack as runtime alternative to SCTP. uTP
+is the reference open-source implementation of LEDBAT and is provided by BitTorrent.
+Similarly to SCTP, uTP provides reliability, in-order delivery and is layered over UDP. We
+were able to encapsulate uTP in WebRTC by creating a new data channel type, the
+LedbatDataMediaChannel. This facility interfaces uTP with the other WebRTC components such
+as those dedicated to security (DTLS) and connection establishment (ICE protocol for NAT
+traversal). A LedbatDataMediaChannel instance is created and managed by a LedbatDataEngine
+during is lifetime. LedbatDataEngine also registers all callbacks from the uTP sockets and
+handles the control messages coming from the network for the setup and tear down of
+transfer channels. Moreover, since the DataChannel abstraction handles messages rather
+than data streams, the LedbatDataEngine also acts as a translation layer between the
+generic DataChannel APIs and the uTP library. The translation is performed by
+encapsulating outgoing messages using a header consisting in a Payload protocol identifier
+(PPID) and message length, which later allows to correctly reconstruct incoming packets
+into messages at the receiver.
 
-Given the similarities between the protocols, we were able to encapsulate uTP over DTLS over ICE/UDP and integrate it within the existing WebRTC stack by extending the latter with a new data channel type, the LedbatDataMediaChannel. This is managed directly by the LedbatDataEngine, which takes care of registering the callbacks on the uTP sockets and handling the Channel Control Messages. Moreover, since DataChannel and SCTP directly handle application messages rather then data streams, the LedbatDataEngine also acts as a translation layer between the DataChannel and the uTP socket. The translation is performed encapsulating outgoing messages using a header consisting in a Payload protocol identifier (PPID) and message length, which later allow to correctly reconstruct incoming packets into messages on the receiver.
-
-\label{sec:architecture}
+%\label{sec:architecture}
 
 \mysec{Preliminary results}
 
@@ -224,28 +235,28 @@ introduced.
 
 %During the initial two minutes of the experiment, the LEDBAT streams correctly use all the available network resources while maintaining the introduced extra delay to a maximum of 100 millisecond, correspondent to the default target delay configured in uTP. At second 120 the two streams quickly release resources in favour of the higher priority TCP flow until it terminates. 
 
-For direct comparison and validation that the normal behavior of SCTP was not affected,
+For direct comparison and validation that the normal behaviour of SCTP was not affected,
 Figure \ref{fig:2sctp_tcp} shows the same experiment performed configuring our test
 application to use DataChannel SCTP streams. Besides fairly sharing the link with the TCP
-transfer as expected, each of the SCTP streams introduce a large amount of extra-delay on
+transfer as expected, each of the SCTP streams introduces a large amount of extra-delay on
 the link as TCP does.
 
 \begin{figure}[t]
   \centering
-    \includegraphics[width=0.47\textwidth]{figs/2ledbat_tcp}
+    \includegraphics[width=0.42\textwidth]{figs/2ledbat_tcp}
 \vspace*{-0.38cm}
-	\caption{Two DataChannel LEDBAT streams sharing a 1Mbit/s bottleneck with a TCP stream} \label{fig:2ledbat_tcp}
+	\caption{\small{Two DataChannel LEDBAT streams sharing a 1Mbit/s bottleneck with a TCP stream}} \label{fig:2ledbat_tcp}
 %\vspace*{-0.4cm}
 \end{figure}
 
 \begin{figure}[t]
   \centering
-    \includegraphics[width=0.47\textwidth]{figs/2sctp_tcp}
+    \includegraphics[width=0.42\textwidth]{figs/2sctp_tcp}
 \vspace*{-0.38cm}
-	\caption{Two DataChannel SCTP  streams sharing a 1Mbit/s bottleneck with a TCP stream} \label{fig:2sctp_tcp}
+	\caption{\small{Two DataChannel SCTP  streams sharing a 1Mbit/s bottleneck with a TCP stream}} \label{fig:2sctp_tcp}
 \vspace*{-0.4cm}
 \end{figure}
-
+\vspace{-0.2cm}
 \bibliographystyle{abbrv}
 \bibliography{main}
 
